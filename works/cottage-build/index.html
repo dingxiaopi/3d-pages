@@ -1,0 +1,1734 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>田园小屋搭建</title>
+<style>
+  :root {
+    --paper: #F1EEE6; --paper-2: #E8E3D7; --ink: #3A342B; --ink-2: #6E6657; --line: #D5CEBE;
+    --accent: #A9614B; --code-bg: #26231E; --code-bg-2: #2F2B25; --code-line: #3B362E;
+    --code-ink: #D9D2C3; --code-dim: #7F7767; --tk-fn: #E0BF85; --tk-str: #A9BC8A; --tk-num: #D99A73; --tk-id: #93AEB6;
+    --active: rgba(224,191,133,.2); --flight: rgba(224,191,133,.07);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--paper); color: var(--ink); }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .app { display: grid; grid-template-columns: 60fr 40fr; height: 100vh; height: 100dvh; }
+  .stage-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .viewport { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+  .hud { position: absolute; top: 14px; left: 14px; width: 196px; padding: 11px 13px; font-size: 12px; line-height: 1.5;
+    background: rgba(241,238,230,.86); border: 1px solid var(--line); border-radius: 8px; backdrop-filter: blur(6px); }
+  .hud h1 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
+  .hud dl { display: grid; grid-template-columns: auto 1fr; gap: 1px 10px; margin: 0; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .hud dd { margin: 0; text-align: right; color: var(--ink); }
+  .hud label { display: block; margin-top: 8px; color: var(--ink-2); }
+  .hud input[type=range] { width: 100%; margin: 3px 0 0; accent-color: var(--accent); display: block; }
+  .chip { position: absolute; top: 14px; right: 14px; padding: 5px 11px; font-size: 12px; background: rgba(241,238,230,.86);
+    border: 1px solid var(--line); border-radius: 999px; color: var(--ink-2); }
+  .chip[aria-pressed=true] { color: var(--ink); border-color: var(--accent); }
+
+  .controls { flex: none; padding: 10px 16px 12px; background: var(--paper-2); border-top: 1px solid var(--line); }
+  .ctl-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .icon-btn { width: 34px; height: 34px; display: grid; place-items: center; padding: 0; background: var(--paper); border: 1px solid var(--line); border-radius: 7px; }
+  .icon-btn:hover { background: #fff9ec; }
+  .icon-btn.primary { background: var(--accent); border-color: var(--accent); color: #FBF6EA; }
+  .icon-btn.primary:hover { background: #B86E56; }
+  .icon-btn svg { width: 15px; height: 15px; fill: currentColor; }
+  .step-title { font-size: 14px; font-weight: 600; margin-left: 6px; min-width: 0; flex: 1 1 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .time { font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .speed { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .speed button { border: 0; background: var(--paper); padding: 6px 9px; font-size: 12px; border-right: 1px solid var(--line); }
+  .speed button:last-child { border-right: 0; }
+  .speed button[aria-pressed=true] { background: var(--ink); color: var(--paper); }
+  .scrub-wrap { position: relative; margin-top: 8px; height: 22px; }
+  .scrub { position: absolute; inset: 0; width: 100%; height: 22px; margin: 0; accent-color: var(--accent); background: transparent; }
+  .ticks { position: absolute; left: 8px; right: 8px; top: 0; bottom: 0; pointer-events: none; }
+  .ticks i { position: absolute; top: 4px; width: 1px; height: 4px; background: var(--ink-2); opacity: .55; }
+
+  .code-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--code-bg); color: var(--code-ink); }
+  .code-head { flex: none; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--code-line); font-size: 13px; }
+  .code-head b { font-weight: 600; }
+  .code-head span { color: var(--code-dim); font-size: 12px; }
+  .code-scroll { position: relative; flex: 1; min-height: 0; overflow: auto; padding: 4px 0 40vh;
+    font: 12.5px/20px ui-monospace, "SF Mono", Menlo, Consolas, monospace; scrollbar-color: var(--code-line) transparent; }
+  .ln { display: flex; min-height: 20px; white-space: pre; }
+  .ln .no { flex: none; width: 46px; padding-right: 12px; text-align: right; color: var(--code-dim); user-select: none; }
+  .ln .tx { flex: 1; padding-right: 16px; }
+  .ln.op { cursor: pointer; }
+  .ln.op:hover { background: var(--code-bg-2); }
+  .ln.flight { background: var(--flight); }
+  .ln.current { background: var(--active); box-shadow: inset 2px 0 0 var(--tk-fn); }
+  .ln.current .no { color: var(--tk-fn); }
+  .stage-head { position: sticky; top: 0; z-index: 2; display: flex; width: 100%; padding: 3px 0; text-align: left; border: 0; border-top: 1px solid var(--code-line);
+    background: var(--code-bg-2); font: inherit; color: inherit; }
+  .stage-head:hover { background: var(--code-line); }
+  .stage-head.now { box-shadow: inset 2px 0 0 var(--tk-fn); }
+  .stage-head .no { flex: none; width: 46px; padding-right: 12px; text-align: right; color: var(--code-dim); }
+  .stage-head .tx { flex: 1; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+  .stage-head .meta { flex: none; display: flex; align-items: center; gap: 8px; padding-right: 12px; color: var(--code-dim); font-size: 11px; }
+  .stage-head .chev { width: 8px; height: 8px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform .15s; }
+  .stage-head[aria-expanded=true] .chev { transform: rotate(45deg); }
+  .stage-body[hidden] { display: none; }
+  .t-fn { color: var(--tk-fn); } .t-str { color: var(--tk-str); } .t-num { color: var(--tk-num); } .t-id { color: var(--tk-id); }
+  .t-com { color: var(--code-dim); font-style: italic; } .t-p { color: #9C9484; }
+
+  .tools { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--code-line); font-size: 12px; }
+  .tools button, .tools input[type=text] { height: 30px; padding: 0 10px; background: var(--code-bg-2); color: var(--code-ink); border: 1px solid var(--code-line); border-radius: 6px; font-size: 12px; }
+  .tools button:hover { background: var(--code-line); }
+  .tools button[disabled] { opacity: .45; cursor: not-allowed; }
+  .tools button.rec { border-color: #D99A73; color: #E9B595; }
+  .tools label { display: inline-flex; align-items: center; gap: 6px; color: var(--code-dim); }
+  .tools input[type=text] { width: 86px; }
+  .tools input[type=checkbox] { accent-color: var(--tk-fn); margin: 0; }
+  .note { flex-basis: 100%; color: var(--code-dim); min-height: 0; }
+  .note:empty { display: none; }
+
+  .fatal { position: fixed; inset: 0; display: none; place-items: center; padding: 24px; background: var(--paper); z-index: 10; }
+  .fatal div { max-width: 480px; line-height: 1.7; }
+  .fatal h2 { margin: 0 0 8px; font-size: 18px; }
+  .fatal code { display: block; margin-top: 8px; font-size: 12px; white-space: pre-wrap; color: var(--ink-2); }
+
+  @media (max-width: 900px) {
+    html, body { height: auto; }
+    .app { display: block; height: auto; }
+    .viewport { flex: none; height: 56vh; min-height: 320px; }
+    .code-pane { height: 70vh; }
+    .hud { width: 164px; top: 10px; left: 10px; padding: 8px 10px; }
+    .chip { top: 10px; right: 10px; }
+    .step-title { flex-basis: 100%; order: 5; margin-left: 0; }
+    .code-head, .tools { padding-left: 16px; padding-right: 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .stage-head .chev { transition: none; } }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<main class="app">
+  <section class="stage-pane">
+    <div class="viewport" id="viewport">
+      <canvas id="scene" aria-label="田园小屋搭建过程的 3D 场景"></canvas>
+      <div class="hud">
+        <h1>田园小屋搭建</h1>
+        <dl>
+          <dt>三角面</dt><dd id="stat-tris">–</dd>
+          <dt>FPS</dt><dd id="stat-fps">–</dd>
+        </dl>
+        <label for="light">光源方位角 <span id="light-val"></span></label>
+        <input id="light" type="range" min="0" max="360" step="1" value="325">
+      </div>
+      <button class="chip" id="auto-cam" aria-pressed="true" title="拖动场景后自动镜头会关闭，点此恢复">自动镜头</button>
+    </div>
+    <div class="controls">
+      <div class="ctl-row">
+        <button class="icon-btn" id="prev" aria-label="上一步" title="上一步"><svg viewBox="0 0 16 16"><path d="M3 2h2v12H3zM14 2v12L6 8z"/></svg></button>
+        <button class="icon-btn primary" id="play" aria-label="播放或暂停"><svg viewBox="0 0 16 16" id="play-ico"></svg></button>
+        <button class="icon-btn" id="next" aria-label="下一步" title="下一步"><svg viewBox="0 0 16 16"><path d="M11 2h2v12h-2zM2 2v12l8-6z"/></svg></button>
+        <div class="step-title" id="step-title" aria-live="off"></div>
+        <span class="time" id="time"></span>
+        <div class="speed" id="speed" role="group" aria-label="播放速度">
+          <button data-speed="0.5" aria-pressed="false">0.5x</button>
+          <button data-speed="1" aria-pressed="true">1x</button>
+          <button data-speed="2" aria-pressed="false">2x</button>
+          <button data-speed="4" aria-pressed="false">4x</button>
+        </div>
+      </div>
+      <div class="scrub-wrap">
+        <input class="scrub" id="scrub" type="range" min="0" step="0.01" value="0" aria-label="播放进度">
+        <div class="ticks" id="ticks"></div>
+      </div>
+    </div>
+  </section>
+  <aside class="code-pane">
+    <div class="code-head"><b>施工脚本</b><span id="code-meta"></span></div>
+    <div class="code-scroll" id="code"></div>
+    <div class="tools">
+      <button id="replay">重新播放</button>
+      <button id="record">录制 webm</button>
+      <button id="export">导出时间轴 JSON</button>
+      <label>随机种子 <input id="seed" type="text" value="cottage" spellcheck="false" autocomplete="off"></label>
+      <label><input id="loop" type="checkbox"> 循环</label>
+      <div class="note" id="note"></div>
+    </div>
+  </aside>
+</main>
+<div class="fatal" id="fatal"><div><h2 id="fatal-title"></h2><span id="fatal-text"></span><code id="fatal-detail"></code></div></div>
+
+<!-- 施工脚本：解释器读取这段文本并执行，代码区显示的也是它。改这里就改了整个搭建过程。 -->
+<script type="text/plain" id="build-script">
+// 田园小屋施工脚本：页面解释并执行的就是这份文本
+
+stage(1,'地块升起',2.5)
+grassTop()
+soil(-0.3,0.7,'soil2')
+soil(-1,1.1,'soil1')
+soil(-2.1,0.8,'soil2')
+soil(-2.9,1.2,'soil1')
+soil(-4.1,0.9,'soil3')
+gravel(64)
+
+stage(2,'栅栏与小路',5)
+// 石板路：从门口穿过院门
+stone(-4.1,-2.1)
+stone(-3.8,-0.9)
+stone(-4.2,0.3)
+stone(-3.9,1.5)
+stone(-4.1,2.7)
+stone(-3.9,3.9)
+stone(-4.2,5.1)
+stone(-3.8,6.3)
+stone(-4.1,7.5)
+stone(-3.7,8.7)
+stone(-4,9.9)
+stone(-3.8,11.1)
+// 木栅栏：围住前院，院门留在小路上
+post(-8.5,-3)
+post(-10.5,-3)
+rail(-8.5,-3,-10.5,-3)
+post(-10.5,-0.67)
+rail(-10.5,-3,-10.5,-0.67)
+post(-10.5,1.67)
+rail(-10.5,-0.67,-10.5,1.67)
+post(-10.5,4)
+rail(-10.5,1.67,-10.5,4)
+post(-8.67,4)
+rail(-10.5,4,-8.67,4)
+post(-6.83,4)
+rail(-8.67,4,-6.83,4)
+post(-5,4)
+rail(-6.83,4,-5,4)
+post(-3,4)
+post(-1.33,4)
+rail(-3,4,-1.33,4)
+post(0.33,4)
+rail(-1.33,4,0.33,4)
+post(2,4)
+rail(0.33,4,2,4)
+post(2,1.67)
+rail(2,4,2,1.67)
+post(2,-0.67)
+rail(2,1.67,2,-0.67)
+post(2,-3)
+rail(2,-0.67,2,-3)
+post(0.5,-3)
+rail(2,-3,0.5,-3)
+
+stage(3,'地基与砖墙',8.5)
+// 地基
+foundation('S')
+foundation('E')
+foundation('N')
+foundation('W')
+// 第 1 层
+wall(-7.6,0,-3.95,'brick','x',1.8)
+wall(-5.8,0,-3.95,'brick','x',1.8)
+wall(-2.2,0,-3.95,'brick','x',1.8)
+wall(-0.4,0,-3.95,'brick','x',1.8)
+wall(0.05,0,-8,'brick','z',1.8)
+wall(0.05,0,-6.2,'brick','z',1.8)
+wall(0.05,0,-4.85,'brick','z',0.9)
+wall(-7.6,0,-9.35,'brick','x',1.8)
+wall(-5.8,0,-9.35,'brick','x',1.8)
+wall(-4,0,-9.35,'brick','x',1.8)
+wall(-2.2,0,-9.35,'brick','x',1.8)
+wall(-0.4,0,-9.35,'brick','x',1.8)
+wall(-8.05,0,-8,'brick','z',1.8)
+wall(-8.05,0,-6.2,'brick','z',1.8)
+wall(-8.05,0,-4.85,'brick','z',0.9)
+// 第 2 层
+wall(-5.35,1,-3.95,'brick','x',0.9)
+wall(-2.65,1,-3.95,'brick','x',0.9)
+wall(0.05,1,-8.9,'brick','z',1.8)
+wall(0.05,1,-7.1,'brick','z',1.8)
+wall(0.05,1,-5.3,'brick','z',1.8)
+wall(0.05,1,-3.95,'brick','z',0.9)
+wall(-6.7,1,-9.35,'brick','x',1.8)
+wall(-4.9,1,-9.35,'brick','x',1.8)
+wall(-3.1,1,-9.35,'brick','x',1.8)
+wall(-1.3,1,-9.35,'brick','x',1.8)
+wall(-8.05,1,-8.9,'brick','z',1.8)
+wall(-8.05,1,-7.1,'brick','z',1.8)
+wall(-8.05,1,-5.3,'brick','z',1.8)
+wall(-8.05,1,-3.95,'brick','z',0.9)
+// 第 3 层
+wall(-8.05,2,-3.95,'brick','x',0.9)
+wall(-5.35,2,-3.95,'brick','x',0.9)
+wall(-2.65,2,-3.95,'brick','x',0.9)
+wall(0.05,2,-3.95,'brick','x',0.9)
+wall(0.05,2,-8,'brick','z',1.8)
+wall(0.05,2,-6.2,'brick','z',1.8)
+wall(0.05,2,-4.85,'brick','z',0.9)
+wall(-7.6,2,-9.35,'brick','x',1.8)
+wall(-5.8,2,-9.35,'brick','x',1.8)
+wall(-4,2,-9.35,'brick','x',1.8)
+wall(-2.2,2,-9.35,'brick','x',1.8)
+wall(-0.4,2,-9.35,'brick','x',1.8)
+wall(-8.05,2,-8,'brick','z',1.8)
+wall(-8.05,2,-6.2,'brick','z',1.8)
+wall(-8.05,2,-4.85,'brick','z',0.9)
+// 第 4 层
+wall(-6.7,3,-3.95,'brick','x',1.8)
+wall(-4.9,3,-3.95,'brick','x',1.8)
+wall(-3.1,3,-3.95,'brick','x',1.8)
+wall(-1.3,3,-3.95,'brick','x',1.8)
+wall(0.05,3,-8.9,'brick','z',1.8)
+wall(0.05,3,-7.1,'brick','z',1.8)
+wall(0.05,3,-5.3,'brick','z',1.8)
+wall(0.05,3,-3.95,'brick','z',0.9)
+wall(-6.7,3,-9.35,'brick','x',1.8)
+wall(-4.9,3,-9.35,'brick','x',1.8)
+wall(-3.1,3,-9.35,'brick','x',1.8)
+wall(-1.3,3,-9.35,'brick','x',1.8)
+wall(-8.05,3,-8.9,'brick','z',1.8)
+wall(-8.05,3,-7.1,'brick','z',1.8)
+wall(-8.05,3,-5.3,'brick','z',1.8)
+wall(-8.05,3,-3.95,'brick','z',0.9)
+
+stage(4,'屋顶瓦片与烟囱',7)
+gable('E')
+gable('W')
+roofDeck('N')
+roofDeck('S')
+// 后坡瓦片，从檐口铺到屋脊
+roofTile(0,0,'N','terracotta')
+roofTile(1,0,'N','terracotta')
+roofTile(2,0,'N','terracotta')
+roofTile(3,0,'N','terracotta')
+roofTile(4,0,'N','terracotta')
+roofTile(5,0,'N','terracotta')
+roofTile(6,0,'N','terracotta')
+roofTile(7,0,'N','terracotta')
+roofTile(8,0,'N','terracotta')
+roofTile(0,1,'N','terracotta')
+roofTile(1,1,'N','terracotta')
+roofTile(2,1,'N','terracotta')
+roofTile(3,1,'N','terracotta')
+roofTile(4,1,'N','terracotta')
+roofTile(5,1,'N','terracotta')
+roofTile(6,1,'N','terracotta')
+roofTile(7,1,'N','terracotta')
+roofTile(8,1,'N','terracotta')
+roofTile(0,2,'N','terracotta')
+roofTile(1,2,'N','terracotta')
+roofTile(2,2,'N','terracotta')
+roofTile(3,2,'N','terracotta')
+roofTile(4,2,'N','terracotta')
+roofTile(5,2,'N','terracotta')
+roofTile(6,2,'N','terracotta')
+roofTile(7,2,'N','terracotta')
+roofTile(8,2,'N','terracotta')
+roofTile(0,3,'N','terracotta')
+roofTile(1,3,'N','terracotta')
+roofTile(2,3,'N','terracotta')
+roofTile(3,3,'N','terracotta')
+roofTile(4,3,'N','terracotta')
+roofTile(5,3,'N','terracotta')
+roofTile(6,3,'N','terracotta')
+roofTile(7,3,'N','terracotta')
+roofTile(8,3,'N','terracotta')
+roofTile(0,4,'N','terracotta')
+roofTile(1,4,'N','terracotta')
+roofTile(2,4,'N','terracotta')
+roofTile(3,4,'N','terracotta')
+roofTile(4,4,'N','terracotta')
+roofTile(5,4,'N','terracotta')
+roofTile(6,4,'N','terracotta')
+roofTile(7,4,'N','terracotta')
+roofTile(8,4,'N','terracotta')
+// 前坡瓦片
+roofTile(0,0,'S','terracotta')
+roofTile(1,0,'S','terracotta')
+roofTile(2,0,'S','terracotta')
+roofTile(3,0,'S','terracotta')
+roofTile(4,0,'S','terracotta')
+roofTile(5,0,'S','terracotta')
+roofTile(6,0,'S','terracotta')
+roofTile(7,0,'S','terracotta')
+roofTile(8,0,'S','terracotta')
+roofTile(0,1,'S','terracotta')
+roofTile(1,1,'S','terracotta')
+roofTile(2,1,'S','terracotta')
+roofTile(3,1,'S','terracotta')
+roofTile(4,1,'S','terracotta')
+roofTile(5,1,'S','terracotta')
+roofTile(6,1,'S','terracotta')
+roofTile(7,1,'S','terracotta')
+roofTile(8,1,'S','terracotta')
+roofTile(0,2,'S','terracotta')
+roofTile(1,2,'S','terracotta')
+roofTile(2,2,'S','terracotta')
+roofTile(3,2,'S','terracotta')
+roofTile(4,2,'S','terracotta')
+roofTile(5,2,'S','terracotta')
+roofTile(6,2,'S','terracotta')
+roofTile(7,2,'S','terracotta')
+roofTile(8,2,'S','terracotta')
+roofTile(0,3,'S','terracotta')
+roofTile(1,3,'S','terracotta')
+roofTile(2,3,'S','terracotta')
+roofTile(3,3,'S','terracotta')
+roofTile(4,3,'S','terracotta')
+roofTile(5,3,'S','terracotta')
+roofTile(6,3,'S','terracotta')
+roofTile(7,3,'S','terracotta')
+roofTile(8,3,'S','terracotta')
+roofTile(0,4,'S','terracotta')
+roofTile(1,4,'S','terracotta')
+roofTile(2,4,'S','terracotta')
+roofTile(3,4,'S','terracotta')
+roofTile(4,4,'S','terracotta')
+roofTile(5,4,'S','terracotta')
+roofTile(6,4,'S','terracotta')
+roofTile(7,4,'S','terracotta')
+roofTile(8,4,'S','terracotta')
+// 屋脊
+ridgeCap(0)
+ridgeCap(1)
+ridgeCap(2)
+ridgeCap(3)
+ridgeCap(4)
+ridgeCap(5)
+ridgeCap(6)
+ridgeCap(7)
+ridgeCap(8)
+// 烟囱
+chimney(0)
+chimney(1)
+chimney(2)
+chimney(3)
+chimneyCap()
+
+stage(5,'门窗',3)
+// 木门
+doorFrame(-4)
+doorPlank(-4.56)
+doorPlank(-4)
+doorPlank(-3.44)
+doorHandle(-3.5)
+doorStep(-4)
+// 两扇窗
+windowFrame(-6.7)
+windowGlass(-6.7)
+windowBar(-6.7)
+flowerBox(-6.7)
+windowFrame(-1.3)
+windowGlass(-1.3)
+windowBar(-1.3)
+flowerBox(-1.3)
+
+stage(6,'菜园与蔬菜生长',6.5)
+// 三条菜垄
+bed(0,5.4)
+bed(1,7.6)
+bed(2,9.8)
+// 蔬菜慢慢长大
+plant('pumpkin',0,0)
+plant('pumpkin',0,1)
+plant('pumpkin',0,2)
+plant('pumpkin',0,3)
+plant('cabbage',1,0)
+plant('cabbage',1,1)
+plant('cabbage',1,2)
+plant('cabbage',1,3)
+plant('cabbage',1,4)
+plant('cabbage',1,5)
+plant('carrot',2,0)
+plant('carrot',2,1)
+plant('carrot',2,2)
+plant('carrot',2,3)
+plant('carrot',2,4)
+plant('carrot',2,5)
+plant('carrot',2,6)
+plant('carrot',2,7)
+
+stage(7,'池塘、花草与树',6)
+// 池塘
+pond(6.8,6.8,3.5)
+rock(3.1,5.2,0.55)
+rock(4,3.3,0.42)
+rock(6.7,2.9,0.6)
+rock(10.2,4.9,0.48)
+rock(10.4,8.2,0.62)
+rock(8,10.6,0.45)
+rock(4.6,9.9,0.52)
+lily(5.6,8.2)
+lily(8,5.1)
+lily(7.9,8.1)
+// 大树与灌木
+tree(-8.2,8.4)
+bush(-11,-10.8,1)
+bush(-10.9,-6.5,0.8)
+bush(11,11,0.9)
+bush(-11,1.2,0.7)
+bush(2.8,10.9,0.75)
+bush(3.4,-10.6,0.8)
+// 花丛
+flowers(-8.6,-0.8,'peach')
+flowers(-6.4,1.8,'cream')
+flowers(-1.7,0.2,'rose')
+flowers(0.5,2.4,'slate')
+flowers(-6.9,-2,'rose')
+flowers(-0.6,-2,'cream')
+flowers(-1.2,6,'peach')
+flowers(2.4,8,'rose')
+flowers(-5.8,10.8,'slate')
+flowers(10.9,1.2,'cream')
+// 高草
+grass(-8,-0.5,2.2,26)
+grass(-1.5,1,2.5,28)
+grass(-9.5,7,2.5,34)
+grass(-6,6,2,22)
+grass(0,7.5,3,34)
+grass(-1,10.5,2.2,24)
+grass(-8,11,1.8,22)
+grass(11,-0.5,1.1,16)
+grass(3,3,1,14)
+grass(10.8,11,1.4,20)
+grass(-11,-3,1,14)
+grass(3.2,-6,1,12)
+// 院边点缀
+woodpile(2.5,-8.2)
+rainBarrel(1.5,-4.6)
+wheelbarrow(3.5,-.6,0.6)
+
+stage(8,'动物登场与环绕展示',6.5)
+duck(pond,1)
+duck(pond,2)
+rabbit(-1.2,8,2.4)
+butterfly(-1.7,.2,1)
+butterfly(-6.4,1.8,2)
+butterfly(2.4,8,3)
+smoke(chimney)
+cat(roof)
+orbit(9)
+</script>
+
+<script type="module">
+// ===================================================================
+// 工具：可复现随机数
+// ===================================================================
+function hashStr(s) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return h >>> 0;
+}
+function mulberry32(a) {
+  return () => {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+const smooth = v => { v = clamp01(v); return v * v * (3 - 2 * v); };
+
+// ===================================================================
+// 第 1 层：脚本解释器（文本 → 指令列表，不依赖 three 和 DOM）
+// ===================================================================
+const Interpreter = {
+  parseArgs(src, no) {
+    const args = [], re = /\s*(?:(-?\d*\.?\d+)|'([^']*)'|([A-Za-z_]\w*))\s*(,|$)/y;
+    if (!src.trim()) return args;
+    let m; re.lastIndex = 0;
+    while (re.lastIndex < src.length) {
+      m = re.exec(src);
+      if (!m) throw new Error(`第 ${no} 行：无法解析参数 “${src}”`);
+      args.push(m[1] !== undefined ? +m[1] : m[2] !== undefined ? m[2] : m[3]);
+    }
+    return args;
+  },
+  parse(text) {
+    let stage = 0;
+    const lines = text.split('\n').map((raw, i) => {
+      const no = i + 1, s = raw.trim();
+      if (!s) return { no, raw, kind: 'blank', stage };
+      if (s.startsWith('//')) return { no, raw, kind: 'comment', stage };
+      const m = s.match(/^([A-Za-z_]\w*)\((.*)\)$/);
+      if (!m) throw new Error(`第 ${no} 行：不是合法指令 “${s}”`);
+      const args = this.parseArgs(m[2], no);
+      if (m[1] === 'stage') { stage = args[0]; return { no, raw, kind: 'stage', stage, title: args[1], seconds: args[2] }; }
+      if (!stage) throw new Error(`第 ${no} 行：指令必须写在 stage(...) 之后`);
+      return { no, raw, kind: 'op', stage, op: m[1], args };
+    });
+    return lines;
+  },
+};
+
+// ===================================================================
+// 第 2 层：时间轴（指令列表 → {id, line, stage, start, duration, anim}）
+// ===================================================================
+const OP_META = {
+  soil: ['rise', 1.3], grassTop: ['rise', 1.2], gravel: ['settle', 1.4],
+  stone: ['drop', .5], post: ['drop', .55], rail: ['drop', .55],
+  foundation: ['drop', .65], wall: ['drop', .6],
+  gable: ['drop', .7], roofDeck: ['drop', .7], roofTile: ['drop', .5], ridgeCap: ['drop', .5], chimney: ['drop', .55], chimneyCap: ['drop', .55],
+  doorFrame: ['drop', .5], doorPlank: ['drop', .5], doorHandle: ['pop', .35], doorStep: ['drop', .45],
+  windowFrame: ['drop', .5], windowGlass: ['pop', .4], windowBar: ['drop', .45], flowerBox: ['drop', .5],
+  bed: ['drop', .65], plant: ['grow', 3.6],
+  pond: ['grow', .95], rock: ['drop', .5], lily: ['pop', .5], tree: ['grow', 1.8], bush: ['grow', .8], flowers: ['grow', .9], grass: ['grow', .8],
+  woodpile: ['drop', .7], rainBarrel: ['drop', .6], wheelbarrow: ['drop', .65],
+  duck: ['pop', .7], rabbit: ['pop', .7], butterfly: ['pop', .6], smoke: ['pop', .6], cat: ['drop', .8], orbit: ['camera', 1.5],
+};
+const STAGE_PAD = .12;   // 每步结束前留白，保证一行完成时刻仍落在本阶段内
+
+class Timeline {
+  constructor(lines) {
+    this.lines = lines;
+    this.stages = [];
+    this.events = [];
+    const headers = lines.filter(l => l.kind === 'stage');
+    let cursor = 0;
+    for (const h of headers) {
+      const ops = lines.filter(l => l.kind === 'op' && l.stage === h.stage);
+      const maxDur = Math.max(0, ...ops.map(o => this.meta(o)[1]));
+      const gap = ops.length > 1 ? Math.max(0, h.seconds - STAGE_PAD - maxDur) / (ops.length - 1) : 0;
+      const st = { index: h.stage, title: h.title, start: cursor, end: cursor + h.seconds, line: h.no, count: ops.length, lastLine: h.no, events: [] };
+      ops.forEach((o, i) => {
+        const [anim, duration] = this.meta(o);
+        const ev = { id: `${o.op}-${o.no}`, line: o.no, stage: h.stage, start: +(cursor + i * gap).toFixed(4), duration, anim, op: o.op, args: o.args };
+        this.events.push(ev); st.events.push(ev);
+      });
+      cursor = st.end;
+      this.stages.push(st);
+    }
+    this.total = cursor;
+    this.byLine = new Map(this.events.map(e => [e.line, e]));
+    // 结束时刻互不相同：点击某行后，当前行一定就是那一行
+    this.byEnd = [...this.events].sort((a, b) => (a.start + a.duration) - (b.start + b.duration) || a.line - b.line);
+    let prev = -1;
+    for (const e of this.byEnd) {
+      let end = e.start + e.duration;
+      if (end <= prev) { end = prev + .001; e.duration = end - e.start; }
+      e.end = prev = end;
+    }
+  }
+  meta(o) {
+    const m = OP_META[o.op];
+    if (!m) throw new Error(`第 ${o.no} 行：未知指令 ${o.op}`);
+    return m;
+  }
+  stageAt(t) {
+    for (const s of this.stages) if (t < s.end) return s;
+    return this.stages[this.stages.length - 1];
+  }
+  currentEvent(t) {   // 最后一条已完成的指令；还没有完成的就取第一条
+    const a = this.byEnd;
+    let lo = 0, hi = a.length - 1, best = -1;
+    while (lo <= hi) { const m = (lo + hi) >> 1; if (a[m].end <= t) { best = m; lo = m + 1; } else hi = m - 1; }
+    return best < 0 ? this.events[0] : a[best];
+  }
+  inFlight(t) { return this.events.filter(e => e.start <= t && t < e.end); }
+  toJSON(seed) {
+    return { seed, total: this.total,
+      stages: this.stages.map(({ index, title, start, end }) => ({ index, title, start, end })),
+      events: this.events.map(({ id, line, stage, start, duration, anim }) => ({ id, line, stage, start, duration: +duration.toFixed(4), anim })) };
+  }
+}
+
+// ===================================================================
+// 第 4 层先定义：UI（只认 app 回调和时间轴，不接触 three）
+// ===================================================================
+const $ = id => document.getElementById(id);
+const ICON = { play: '<path d="M3 1.5v13l11-6.5z"/>', pause: '<path d="M3 2h4v12H3zM9 2h4v12H9z"/>' };
+
+class UI {
+  constructor(app) {
+    this.app = app;
+    this.lineEls = new Map();
+    this.groups = new Map();
+    this.flight = new Set();
+    this.current = null;
+    this.pinned = new Set();
+    this.closed = new Set();
+    this.hoverCode = false;
+    this.lastStage = 0;
+    this.bind();
+  }
+  highlight(raw) {
+    const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    if (raw.trim().startsWith('//')) return `<span class="t-com">${esc(raw)}</span>`;
+    return raw.replace(/([A-Za-z_]\w*)(?=\()|'[^']*'|-?\d*\.?\d+|[A-Za-z_]\w*|[(),]/g, (m, fn) => {
+      if (fn) return `<span class="t-fn">${m}</span>`;
+      if (m[0] === "'") return `<span class="t-str">${esc(m)}</span>`;
+      if (/^-?[\d.]/.test(m)) return `<span class="t-num">${m}</span>`;
+      if (/^[(),]$/.test(m)) return `<span class="t-p">${m}</span>`;
+      return `<span class="t-id">${m}</span>`;
+    });
+  }
+  setTimeline(tl) {
+    this.tl = tl;
+    const code = $('code');
+    code.textContent = '';
+    this.lineEls.clear(); this.groups.clear();
+    let body = code;
+    for (const l of tl.lines) {
+      if (l.kind === 'stage') {
+        const st = tl.stages.find(s => s.index === l.stage);
+        const head = document.createElement('button');
+        head.className = 'stage-head'; head.setAttribute('aria-expanded', 'true');
+        head.innerHTML = `<span class="no">${l.no}</span><span class="tx">${this.highlight(l.raw)}</span><span class="meta"><span>${st.count} 行</span><i class="chev"></i></span>`;
+        body = document.createElement('div');
+        body.className = 'stage-body';
+        head.addEventListener('click', () => this.toggleGroup(l.stage));
+        code.append(head, body);
+        this.groups.set(l.stage, { head, body });
+        continue;
+      }
+      if (l.kind === 'blank') continue;
+      const el = document.createElement('div');
+      el.className = 'ln ' + l.kind;
+      el.dataset.line = l.no;
+      el.innerHTML = `<span class="no">${l.no}</span><span class="tx">${this.highlight(l.raw)}</span>`;
+      body.append(el);
+      this.lineEls.set(l.no, el);
+    }
+    $('code-meta').textContent = `${tl.lines.length} 行 · ${tl.events.length} 条指令`;
+    $('scrub').max = tl.total;
+    $('ticks').innerHTML = tl.stages.slice(1).map(s => `<i style="left:${s.start / tl.total * 100}%"></i>`).join('');
+  }
+  toggleGroup(stage) {
+    const g = this.groups.get(stage), open = g.body.hidden;
+    if (open) { this.pinned.add(stage); this.closed.delete(stage); }
+    else { this.pinned.delete(stage); this.closed.add(stage); }
+    this.setGroupOpen(stage, open);
+  }
+  setGroupOpen(stage, open) {
+    const g = this.groups.get(stage);
+    if (g.body.hidden === !open) return;
+    g.body.hidden = !open;
+    g.head.setAttribute('aria-expanded', String(open));
+  }
+  syncGroups(nowStage, lineStage) {
+    for (const stage of this.groups.keys()) {
+      const open = !this.closed.has(stage) && (stage === nowStage || stage === lineStage || this.pinned.has(stage));
+      this.setGroupOpen(stage, open);
+      this.groups.get(stage).head.classList.toggle('now', stage === nowStage);
+    }
+  }
+  bind() {
+    const app = this.app;
+    $('play').addEventListener('click', () => app.togglePlay());
+    $('prev').addEventListener('click', () => app.step(-1));
+    $('next').addEventListener('click', () => app.step(1));
+    $('replay').addEventListener('click', () => app.replay());
+    $('export').addEventListener('click', () => app.exportTimeline());
+    $('record').addEventListener('click', () => app.toggleRecord());
+    $('loop').addEventListener('change', e => { app.loop = e.target.checked; });
+    $('auto-cam').addEventListener('click', () => app.setAutoCam(true));
+    $('speed').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      app.speed = +b.dataset.speed;
+      for (const x of $('speed').children) x.setAttribute('aria-pressed', String(x === b));
+    });
+    const scrub = $('scrub');
+    let resume = false;
+    scrub.addEventListener('pointerdown', () => { resume = app.playing; app.setPlaying(false); });
+    scrub.addEventListener('input', () => app.seek(+scrub.value));
+    const release = () => { if (resume) app.setPlaying(true); resume = false; };
+    scrub.addEventListener('pointerup', release);
+    scrub.addEventListener('pointercancel', release);
+    const seed = $('seed');
+    const applySeed = () => { if (seed.value.trim()) app.setSeed(seed.value.trim()); };
+    seed.addEventListener('change', applySeed);
+    seed.addEventListener('keydown', e => { if (e.key === 'Enter') seed.blur(); });
+    $('light').addEventListener('input', e => this.setLightValue(+e.target.value, true));
+    const code = $('code');
+    code.addEventListener('pointerenter', () => { this.hoverCode = true; });
+    code.addEventListener('pointerleave', () => { this.hoverCode = false; app.hoverLine(null); });
+    code.addEventListener('pointerover', e => {
+      const el = e.target.closest('.ln.op');
+      app.hoverLine(el ? +el.dataset.line : null);
+    });
+    code.addEventListener('click', e => {
+      const el = e.target.closest('.ln.op');
+      if (el) app.jumpToLine(+el.dataset.line);
+    });
+    window.addEventListener('keydown', e => {
+      if (e.target.matches('input[type=text]') || e.target.closest('button')) return;
+      if (e.code === 'Space') { e.preventDefault(); app.togglePlay(); }
+      if (e.code === 'ArrowLeft') app.step(-1);
+      if (e.code === 'ArrowRight') app.step(1);
+    });
+  }
+  setLightValue(deg, fromInput) {
+    $('light-val').textContent = `${deg}°`;
+    if (fromInput) this.app.setLight(deg);
+  }
+  setPlaying(p) { $('play-ico').innerHTML = p ? ICON.pause : ICON.play; $('play').title = p ? '暂停' : '播放'; }
+  setAutoCam(on) { $('auto-cam').setAttribute('aria-pressed', String(on)); $('auto-cam').textContent = on ? '自动镜头' : '恢复自动镜头'; }
+  setRecording(on) { const b = $('record'); b.classList.toggle('rec', on); b.textContent = on ? '停止录制' : '录制 webm'; }
+  note(text) { $('note').textContent = text; }
+  stats(tris, peak, fps) {
+    $('stat-tris').textContent = `${tris.toLocaleString()} / ${peak.toLocaleString()}`;
+    $('stat-fps').textContent = fps;
+  }
+  update(t) {
+    const tl = this.tl, tc = Math.min(t, tl.total);
+    $('scrub').value = tc;
+    const st = tl.stageAt(tc);
+    $('step-title').textContent = `步骤 ${st.index}/${tl.stages.length} ${st.title}`;
+    $('time').textContent = `${tc.toFixed(1)} / ${tl.total.toFixed(0)}s`;
+
+    const cur = tl.currentEvent(tc);
+    this.syncGroups(st.index, cur.stage);
+    const fl = tl.inFlight(tc), set = new Set(fl.map(e => e.line));
+    for (const n of this.flight) if (!set.has(n)) this.lineEls.get(n)?.classList.remove('flight');
+    for (const n of set) if (!this.flight.has(n)) this.lineEls.get(n)?.classList.add('flight');
+    this.flight = set;
+    if (this.current !== cur.line) {
+      this.lineEls.get(this.current)?.classList.remove('current');
+      this.lineEls.get(cur.line)?.classList.add('current');
+      this.current = cur.line;
+    }
+    this.followLine();
+  }
+  followLine() {
+    if (this.hoverCode && !this.forceFollow) return;
+    const el = this.lineEls.get(this.current), box = $('code');
+    if (!el || !el.offsetParent) return;
+    const target = el.offsetTop - box.clientHeight * .42;
+    const d = Math.max(0, target) - box.scrollTop;
+    if (this.forceFollow) { box.scrollTop += d; this.forceFollow = false; return; }
+    if (Math.abs(d) > 1) box.scrollTop += Math.abs(d) > 400 ? d : d * .18;
+  }
+}
+
+// ===================================================================
+// 启动：先载入 three（失败时给出明确提示）
+// ===================================================================
+function fatal(title, text, err) {
+  $('fatal-title').textContent = title; $('fatal-text').textContent = text;
+  $('fatal-detail').textContent = err ? String(err.message || err) : '';
+  $('fatal').style.display = 'grid';
+}
+let THREE, OrbitControls, RoundedBoxGeometry;
+try {
+  [THREE, { OrbitControls }, { RoundedBoxGeometry }] = await Promise.all([
+    import('three'), import('three/addons/controls/OrbitControls.js'), import('three/addons/geometries/RoundedBoxGeometry.js'),
+  ]);
+} catch (err) {
+  fatal('three.js 没有加载成功', '页面需要从 cdn.jsdelivr.net 载入 three.js，请检查网络后刷新。', err);
+  throw err;
+}
+
+// ===================================================================
+// 第 3 层：渲染层（时间轴 + 种子 → 场景；render(t) 是 t 的纯函数）
+// ===================================================================
+const PAL = {
+  grass: '#93A671', moss: '#6F8A57', brick: '#A9654F', terracotta: '#BF7B53', cream: '#E4D6B3',
+  slate: '#8CA0A6', wood: '#6E5039', soil: '#7A5A41',
+  // 由以上色相派生的深浅
+  soil1: '#6C4F39', soil2: '#8A6A4D', soil3: '#57402F', stone: '#A9A497', stoneDark: '#8B8679', woodLight: '#927050',
+  leaf: '#7E9A5F', peach: '#D9A07B', rose: '#C98C7C', duck: '#EFE8D6', orange: '#C98348', puff: '#EEE9DC', water: '#8FA9AE', bank: '#A89670', carrotTop: '#7E9A5F',
+};
+const H = (() => {
+  const zf = -3.5, zb = -9.8, rise = 2.7, run = (zf - zb) / 2, eave = 3.6, over = .6;
+  const theta = Math.atan2(rise, run), slope = Math.hypot(rise, run), L = slope + over;
+  return { x0: -8.5, x1: .5, zf, zb, zc: (zf + zb) / 2, y0: .4, course: .8, eave, ridge: eave + rise, theta, rise, run, L,
+    roofX0: -9.1, roofX1: 1.1, cols: 9, rows: 5, ROW: L / 5 };
+})();
+const PLOT = 12;
+
+const ANIMS = {
+  drop(p, h) {
+    const f = .6;
+    if (p < f) { const q = p / f; return { y: h * (1 - q * q), sx: Math.min(1, q * 6), sy: Math.min(1, q * 6), sz: Math.min(1, q * 6) }; }
+    const q = (p - f) / (1 - f), w = Math.sin(Math.PI * q) * (1 - q);
+    return { y: h * .045 * w, sx: 1 + w * .1, sy: 1 - w * .16, sz: 1 + w * .1 };
+  },
+  rise(p, h) {
+    const q = 1 - p;   // 不回弹：后到的土层始终在先到的下方，不会互相穿过
+    return { y: -h * q * q * q, sx: 1, sy: 1, sz: 1 };
+  },
+  grow(p) {
+    const q = p - 1, e = 1 + 2.1 * q * q * q + 1.1 * q * q;
+    return { y: 0, sx: e, sy: e, sz: e };
+  },
+  pop(p) {
+    const q = p - 1, e = 1 + 2.7 * q * q * q + 1.7 * q * q;
+    return { y: 0, sx: e, sy: e, sz: e };
+  },
+  settle(p) {   // 等土层全部到位后才冒出来（碎石嵌在土层侧面）
+    const e = ANIMS.pop(clamp01((p - .84) / .16)).sx;
+    return { y: 0, sx: e, sy: e, sz: e };
+  },
+  camera() { return { y: 0, sx: 1, sy: 1, sz: 1 }; },
+};
+
+const _m = new THREE.Matrix4(), _b = new THREE.Matrix4(), _l = new THREE.Matrix4(), _s = new THREE.Matrix4();
+const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler();
+const _up = new THREE.Vector3(0, 1, 0), _c = new THREE.Color();
+const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+const mat4 = (p = [0, 0, 0], r = [0, 0, 0], s = 1) => {
+  const m = new THREE.Matrix4(), sc = typeof s === 'number' ? [s, s, s] : s;
+  _e.set(r[0], r[1], r[2]);
+  return m.compose(new THREE.Vector3(...p), new THREE.Quaternion().setFromEuler(_e), new THREE.Vector3(...sc));
+};
+
+// 给几何体写顶点色：下部略暗，模拟环境光遮蔽
+function shadeY(geo, lo = .84) {
+  const pos = geo.attributes.position; geo.computeBoundingBox();
+  const a = geo.boundingBox.min.y, h = (geo.boundingBox.max.y - a) || 1;
+  const col = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const v = lo + (1 - lo) * smooth((pos.getY(i) - a) / h);
+    col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = v;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return geo;
+}
+
+class GeoLib {
+  constructor() { this.defs = new Map(); }
+  reg(key, make, mat = 'std') { if (!this.defs.has(key)) this.defs.set(key, { make, mat }); return key; }
+  box(w, h, d, r) {
+    const rad = r ?? Math.min(.035, Math.min(w, h, d) * .4);
+    return this.reg(`box:${w}:${h}:${d}:${rad}`, () => shadeY(new RoundedBoxGeometry(w, h, d, 1, rad)));
+  }
+  hard(w, h, d) { return this.reg(`hard:${w}:${h}:${d}`, () => shadeY(new THREE.BoxGeometry(w, h, d), .96)); }
+  cyl(rt, rb, h, seg = 10) { return this.reg(`cyl:${rt}:${rb}:${h}:${seg}`, () => shadeY(new THREE.CylinderGeometry(rt, rb, h, seg))); }
+  cone(r, h, seg = 5) { return this.reg(`cone:${r}:${h}:${seg}`, () => shadeY(new THREE.ConeGeometry(r, h, seg).translate(0, h / 2, 0), .7)); }
+  ball(seg = 12) { return this.reg(`ball:${seg}`, () => shadeY(new THREE.SphereGeometry(1, seg, Math.ceil(seg * .7)), .78)); }
+  rock(detail = 0) { return this.reg(`rock:${detail}`, () => shadeY(new THREE.IcosahedronGeometry(1, detail), .78), 'flat'); }
+}
+
+class Actor {
+  constructor(ev, x, y, z, opts = {}) {
+    this.ev = ev; this.x = x; this.y = y; this.z = z;
+    this.ry = opts.ry || 0; this.h = opts.h ?? 6; this.perPart = !!opts.perPart;
+    this.live = !!opts.live; this.motion = null;
+    this.parts = []; this.contacts = []; this.lastP = 0; this.tris = 0;
+  }
+}
+
+class World {
+  constructor(canvas) {
+    this.canvas = canvas;
+    const r = this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    r.outputColorSpace = THREE.SRGBColorSpace;
+    r.shadowMap.enabled = true;
+    r.shadowMap.type = THREE.PCFSoftShadowMap;
+    r.shadowMap.autoUpdate = false;
+
+    this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color('#F1EEE6');
+    this.camera = new THREE.OrthographicCamera(-20, 20, 20, -20, 1, 260);
+    this.target = new THREE.Vector3(0, -1.2, 0);
+    this.autoCam = true;
+    this.azim0 = Math.PI / 4; this.elev = Math.atan(1 / Math.SQRT2);
+    this.controls = new OrbitControls(this.camera, canvas);
+    Object.assign(this.controls, { enableDamping: true, dampingFactor: .08, minZoom: .6, maxZoom: 7, maxPolarAngle: 1.42 });
+    this.onUserCamera = null;
+    this.controls.addEventListener('start', () => { if (this.autoCam) { this.autoCam = false; this.onUserCamera?.(); } });
+
+    this.scene.add(new THREE.HemisphereLight('#F7F1E2', '#BDAE92', 1.55));
+    this.sun = new THREE.DirectionalLight('#FFF3DF', 2.4);
+    const sc = this.sun.shadow;
+    sc.mapSize.set(4096, 4096);
+    Object.assign(sc.camera, { left: -20, right: 20, top: 20, bottom: -20, near: 5, far: 110 });
+    sc.bias = -.00025; sc.normalBias = .03;
+    this.sun.castShadow = true;
+    this.scene.add(this.sun, this.sun.target);
+
+    this.materials = {
+      std: new THREE.MeshStandardMaterial({ roughness: .9, metalness: 0, vertexColors: true }),
+      flat: new THREE.MeshStandardMaterial({ roughness: .9, metalness: 0, vertexColors: true, flatShading: true }),
+      water: new THREE.MeshStandardMaterial({ roughness: .55, metalness: 0, vertexColors: true }),
+    };
+    this.softTex = this.makeSoftTexture();
+    this.makeFloorShadow();
+    this.root = null; this.actors = []; this.buckets = new Map(); this.lastT = NaN; this.needShadow = true;
+    this.glow = null;
+  }
+
+  // ---------- 贴地软影 ----------
+  makeSoftTexture() {
+    const S = 128, c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d');
+    g.shadowColor = 'rgba(52,40,26,1)'; g.shadowBlur = 22; g.shadowOffsetX = S * 2;
+    g.fillStyle = '#000'; g.fillRect(S * .22 - S * 2, S * .22, S * .56, S * .56);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+  makeFloorShadow() {
+    const c = this.floorCanvas = document.createElement('canvas'); c.width = c.height = 512;
+    this.floorTex = new THREE.CanvasTexture(c); this.floorTex.colorSpace = THREE.SRGBColorSpace;
+    const m = new THREE.MeshBasicMaterial({ map: this.floorTex, transparent: true, depthWrite: false, toneMapped: false });
+    this.floor = new THREE.Mesh(new THREE.PlaneGeometry(96, 96), m);
+    this.floor.rotation.x = -Math.PI / 2; this.floor.position.y = -9.5; this.floor.renderOrder = -1;
+    this.scene.add(this.floor);
+  }
+  setLight(deg) {
+    const a = THREE.MathUtils.degToRad(deg), el = THREE.MathUtils.degToRad(46);
+    const dir = new THREE.Vector3(Math.sin(a) * Math.cos(el), Math.sin(el), Math.cos(a) * Math.cos(el));
+    this.sun.position.copy(dir).multiplyScalar(55);
+    this.sun.target.position.set(0, 0, 0);
+    this.sun.target.updateMatrixWorld();
+    // 地块在下方地面的投影：上下两个方形的外包多边形，模糊后得到柔和长影
+    const g = this.floorCanvas.getContext('2d'), S = 512, u = S / 96, k = 1 / Math.tan(el);
+    const pts = [];
+    for (const hgt of [4.5, 9.5]) for (const [x, z] of [[-PLOT, -PLOT], [PLOT, -PLOT], [PLOT, PLOT], [-PLOT, PLOT]]) {
+      pts.push([S / 2 + (x - dir.x / Math.cos(el) * hgt * k) * u, S / 2 + (z - dir.z / Math.cos(el) * hgt * k) * u]);
+    }
+    const hull = convexHull(pts);
+    g.clearRect(0, 0, S, S);
+    g.save();
+    g.shadowColor = 'rgba(92,72,50,.34)'; g.shadowBlur = 26; g.shadowOffsetX = S * 2;
+    g.beginPath(); hull.forEach(([x, y], i) => i ? g.lineTo(x - S * 2, y) : g.moveTo(x - S * 2, y)); g.closePath();
+    g.fillStyle = '#000'; g.fill();
+    g.restore();
+    this.floorTex.needsUpdate = true;
+    this.needShadow = true;
+  }
+
+  // ---------- 构建 ----------
+  build(timeline, seed) {
+    this.dispose();
+    this.timeline = timeline; this.seed = seed;
+    this.root = new THREE.Group(); this.scene.add(this.root);
+    const ctx = new BuildContext(this, seed);
+    this.orbit = null;
+    for (const ev of timeline.events) {
+      const fn = BUILDERS[ev.op];
+      if (!fn) throw new Error(`第 ${ev.line} 行：指令 ${ev.op} 没有实现`);
+      fn(ctx, ev, ...ev.args);
+    }
+    this.finishBuckets(ctx);
+    this.lastT = NaN;
+    this.lineActors = new Map();
+    for (const a of this.actors) { const l = this.lineActors.get(a.ev.line) || []; l.push(a); this.lineActors.set(a.ev.line, l); }
+    this.peakTris = this.actors.reduce((s, a) => s + a.tris, 0);
+  }
+  finishBuckets(ctx) {
+    for (const [key, parts] of ctx.bucketParts) {
+      const def = ctx.geo.defs.get(key);
+      const geo = def.make();
+      const mat = this.materials[def.mat];
+      const mesh = new THREE.InstancedMesh(geo, mat, parts.length);
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      mesh.frustumCulled = false;
+      mesh.castShadow = !ctx.noCast.has(key);
+      mesh.receiveShadow = true;
+      const triCount = (geo.index ? geo.index.count : geo.attributes.position.count) / 3;
+      parts.forEach((p, i) => {
+        p.mesh = mesh; p.i = i; p.tris = triCount;
+        mesh.setMatrixAt(i, ZERO); mesh.setColorAt(i, p.color);
+        p.actor.tris += triCount;
+      });
+      mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+      this.buckets.set(key, mesh);
+      this.root.add(mesh);
+    }
+  }
+  dispose() {
+    if (!this.root) return;
+    this.scene.remove(this.root);
+    for (const mesh of this.buckets.values()) { mesh.geometry.dispose(); mesh.dispose(); }
+    for (const a of this.actors) for (const c of a.contacts) c.mesh.material.dispose();
+    this.buckets.clear(); this.actors = []; this.glow = null;
+    this.contactGeo?.dispose(); this.contactGeo = null;
+  }
+
+  // ---------- 画面 = f(t) ----------
+  applyActor(a, t) {
+    const e = a.ev, p = clamp01((t - e.start) / e.duration);
+    if (p === 0 && a.lastP === 0) return;
+    if (!a.live && p === a.lastP) return;
+    a.lastP = p;
+    for (const c of a.contacts) c.mesh.material.opacity = c.opacity * smooth(p * 1.4);
+    if (p === 0) { for (const part of a.parts) { part.mesh.setMatrixAt(part.i, ZERO); part.mesh.instanceMatrix.needsUpdate = true; } return; }
+    if (a.motion) a.motion(t, a);
+    const pose = ANIMS[e.anim](p, a.h);
+    _v.set(a.x, a.y + pose.y, a.z);
+    _q.setFromAxisAngle(_up, a.ry);
+    if (a.perPart) {
+      _v2.set(1, 1, 1); _b.compose(_v, _q, _v2);
+      _s.makeScale(pose.sx, pose.sy, pose.sz);
+    } else {
+      _v2.set(pose.sx, pose.sy, pose.sz); _b.compose(_v, _q, _v2);
+    }
+    for (const part of a.parts) {
+      const local = part.dyn ? part.dyn(t, _l) : part.local;
+      _m.multiplyMatrices(_b, local);
+      if (a.perPart) _m.multiply(_s);
+      if (part.post) part.post(_m, t);
+      part.mesh.setMatrixAt(part.i, _m);
+      part.mesh.instanceMatrix.needsUpdate = true;
+    }
+  }
+  cameraPose(t) {
+    let az = this.azim0;
+    if (this.orbit) {
+      const tau = Math.max(0, t - this.orbit.start), ramp = 1.5;
+      const turn = tau < ramp ? tau * tau / (2 * ramp) : tau - ramp / 2;
+      az += THREE.MathUtils.degToRad(this.orbit.speed) * turn;
+    }
+    const d = 110, ce = Math.cos(this.elev);
+    this.camera.position.set(this.target.x + Math.sin(az) * ce * d, this.target.y + Math.sin(this.elev) * d, this.target.z + Math.cos(az) * ce * d);
+    this.camera.lookAt(this.target);
+  }
+  render(t) {
+    const changed = t !== this.lastT;
+    if (changed) {
+      for (const a of this.actors) this.applyActor(a, t);
+      const plot = this.floorActor;
+      if (plot) this.floor.material.opacity = smooth(clamp01((t - plot.ev.start) / plot.ev.duration));
+      this.lastT = t;
+      this.needShadow = true;
+    }
+    if (this.autoCam) { this.cameraPose(t); }
+    else this.controls.update();
+    this.updateGlow();
+    if (this.needShadow) { this.renderer.shadowMap.needsUpdate = true; this.needShadow = false; }
+    this.renderer.render(this.scene, this.camera);
+  }
+  setAutoCam(on) {
+    this.autoCam = on;
+    if (on) { this.camera.zoom = 1; this.target.set(0, -1.2, 0); this.controls.target.copy(this.target); this.camera.updateProjectionMatrix(); }
+    else this.controls.target.copy(this.target);
+  }
+  resize(w, h) {
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.setSize(w, h, false);
+    const aspect = w / h, halfH = Math.max(19, 20 / aspect), halfW = halfH * aspect;
+    Object.assign(this.camera, { left: -halfW, right: halfW, top: halfH, bottom: -halfH });
+    this.camera.updateProjectionMatrix();
+  }
+
+  // ---------- 悬停发光（界面效果，和 t 无关） ----------
+  setGlow(line) {
+    if (this.glow) this.paintGlow(this.glow.line, 0);
+    this.glow = line == null ? null : { line, start: performance.now() };
+  }
+  paintGlow(line, k) {
+    const list = this.lineActors?.get(line) || [];
+    for (const a of list) for (const part of a.parts) {
+      _c.copy(part.color).multiplyScalar(1 + k * 1.3);
+      _c.r += k * .08; _c.g += k * .06; _c.b += k * .02;
+      part.mesh.setColorAt(part.i, _c);
+      part.mesh.instanceColor.needsUpdate = true;
+    }
+  }
+  updateGlow() {
+    if (!this.glow) return;
+    const age = (performance.now() - this.glow.start) / 900;
+    if (age >= 1) { this.paintGlow(this.glow.line, 0); this.glow = null; return; }
+    this.paintGlow(this.glow.line, Math.sin(Math.PI * age));
+  }
+  stats() {
+    let tris = 0;
+    for (const a of this.actors) if (a.lastP > 0) tris += a.tris;
+    return { tris, peak: this.peakTris };
+  }
+  // 校验用：当前所有实例矩阵和相机的摘要，相同的 t 必须得到相同的值
+  stateHash() {
+    let h = 0x811c9dc5;
+    const mix = f => { h ^= Math.round(f * 1000); h = Math.imul(h, 0x01000193); };
+    for (const key of [...this.buckets.keys()].sort()) { const arr = this.buckets.get(key).instanceMatrix.array; for (let i = 0; i < arr.length; i++) mix(arr[i]); }
+    this.camera.position.toArray().forEach(mix);
+    return h >>> 0;
+  }
+}
+
+function convexHull(points) {
+  const p = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const half = list => { const s = []; for (const q of list) { while (s.length > 1 && cross(s[s.length - 2], s[s.length - 1], q) <= 0) s.pop(); s.push(q); } s.pop(); return s; };
+  return [...half(p), ...half(p.reverse())];
+}
+
+// ===================================================================
+// 构建上下文：把一条指令变成若干实例
+// ===================================================================
+class BuildContext {
+  constructor(world, seed) {
+    this.world = world; this.seed = seed;
+    this.geo = new GeoLib(); this.bucketParts = new Map(); this.noCast = new Set(); this.refs = {};
+    world.contactGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+  }
+  rng(ev) { return mulberry32(hashStr(`${this.seed}|${ev.id}`)); }
+  actor(ev, x = 0, y = 0, z = 0, opts) {
+    const a = new Actor(ev, x, y, z, opts);
+    this.world.actors.push(a);
+    return a;
+  }
+  color(name, rng, amount = .03) {
+    const c = new THREE.Color(PAL[name] || name);
+    if (rng) c.offsetHSL(0, 0, (rng() * 2 - 1) * amount * .5);
+    return c;
+  }
+  add(a, key, colorName, o = {}) {
+    const part = { actor: a, local: o.m || mat4(o.p, o.r, o.s), color: colorName instanceof THREE.Color ? colorName : this.color(colorName, o.rng, o.amount), dyn: o.dyn, post: o.post };
+    if (!this.bucketParts.has(key)) this.bucketParts.set(key, []);
+    this.bucketParts.get(key).push(part);
+    a.parts.push(part);
+    if (o.noCast) this.noCast.add(key);
+    return part;
+  }
+  contact(a, x, z, w, d, opacity = .3, ry = 0) {
+    const mat = new THREE.MeshBasicMaterial({ map: this.world.softTex, transparent: true, depthWrite: false, opacity: 0, toneMapped: false });
+    const mesh = new THREE.Mesh(this.world.contactGeo, mat);
+    mesh.position.set(x, .02, z); mesh.rotation.y = ry; mesh.scale.set(w * 1.8, 1, d * 1.8);
+    mesh.renderOrder = 1;
+    this.world.root.add(mesh);
+    a.contacts.push({ mesh, opacity });
+  }
+  isFree(x, z) {
+    if (Math.abs(x) > PLOT - .2 || Math.abs(z) > PLOT - .2) return false;
+    if (x > H.x0 - .4 && x < H.x1 + .4 && z > H.zb - .4 && z < H.zf + .4) return false;
+    if (x > -4.9 && x < -3.1) return false;
+    if (x > 4.3 && x < 10.9 && z > -10.9 && z < -2.3) return false;
+    const pd = Math.hypot(x - 6.8, z - 6.8);
+    if (pd < 4.1) return false;
+    if (Math.hypot(x + 8.2, z - 8.4) < .9) return false;
+    return true;
+  }
+}
+
+// 随风摇摆：只改矩阵的 Y 列，代价很小，且只依赖 t
+const swayPost = amp => (m, t) => {
+  const e = m.elements, x = e[12], z = e[14];
+  const w = Math.sin(t * 1.7 + x * .6 + z * .45) * amp + Math.sin(t * 3.1 + x * 1.3) * amp * .35;
+  e[4] += w * e[5]; e[6] += w * .6 * e[5];
+};
+
+// 不规则的圆润水面：极坐标网格，中心深、岸边浅
+function blobDisc(seed, radius, rings, yAt, colorAt) {
+  const rnd = mulberry32(hashStr(seed + '|pond'));
+  const ph = [rnd() * 6.28, rnd() * 6.28, rnd() * 6.28], seg = 72;
+  const R = a => radius * (1 + .07 * Math.sin(2 * a + ph[0]) + .05 * Math.sin(3 * a + ph[1]) + .025 * Math.sin(5 * a + ph[2]));
+  const pos = [0, yAt(0), 0], col = [...colorAt(0)], idx = [];
+  for (let r = 1; r <= rings; r++) for (let s = 0; s < seg; s++) {
+    const a = s / seg * Math.PI * 2, k = r / rings, q = R(a) * k;
+    pos.push(Math.cos(a) * q, yAt(k), Math.sin(a) * q);
+    col.push(...colorAt(k));
+  }
+  for (let s = 0; s < seg; s++) idx.push(0, 1 + (s + 1) % seg, 1 + s);
+  for (let r = 0; r < rings - 1; r++) for (let s = 0; s < seg; s++) {
+    const a = 1 + r * seg + s, b = 1 + r * seg + (s + 1) % seg, c = a + seg, d = b + seg;
+    idx.push(a, b, c, b, d, c);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+
+// ===================================================================
+// 指令实现：每条脚本指令对应一个函数
+// ===================================================================
+const BUILDERS = {
+  // —— 地块 ——
+  soil(c, ev, y, h, tone) {
+    const a = c.actor(ev, 0, y - h / 2, 0, { h: 24 });
+    c.add(a, c.geo.hard(PLOT * 2, h, PLOT * 2), tone);
+    c.world.floorActor = a;   // 最后一层到位时，地面长影也完全显现
+  },
+  grassTop(c, ev) {
+    const a = c.actor(ev, 0, 0, 0, { h: 24 });
+    const rnd = c.rng(ev), ph = [rnd() * 6, rnd() * 6, rnd() * 6, rnd() * 6];
+    const key = c.geo.reg('ground', () => {
+      const g = new THREE.PlaneGeometry(PLOT * 2, PLOT * 2, 48, 48).rotateX(-Math.PI / 2);
+      const pos = g.attributes.position, col = new Float32Array(pos.count * 3);
+      const A = new THREE.Color(PAL.grass), B = new THREE.Color(PAL.moss), C = new THREE.Color();
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i), z = pos.getZ(i);
+        const n = .5 + .28 * Math.sin(x * .42 + ph[0]) * Math.cos(z * .37 + ph[1]) + .22 * Math.sin(x * .9 + z * .7 + ph[2]) * Math.sin(z * 1.1 - x * .3 + ph[3]);
+        C.copy(A).lerp(B, clamp01(n) * .55);
+        col[i * 3] = C.r; col[i * 3 + 1] = C.g; col[i * 3 + 2] = C.b;
+      }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      return g;
+    });
+    c.noCast.add(key);
+    c.add(a, key, '#FFFFFF');
+    c.add(a, c.geo.hard(PLOT * 2, .3, PLOT * 2), 'grass', { p: [0, -.16, 0] });
+  },
+  gravel(c, ev, n) {
+    const a = c.actor(ev, 0, 0, 0, { perPart: true });
+    const rnd = c.rng(ev), key = c.geo.rock(0);
+    for (let i = 0; i < n; i++) {
+      const side = i % 4, along = (rnd() * 2 - 1) * (PLOT - .5), y = -.6 - rnd() * 4.1;
+      const s = .14 + rnd() * rnd() * .34;
+      const p = side === 0 ? [along, y, PLOT] : side === 1 ? [PLOT, y, along] : side === 2 ? [along, y, -PLOT] : [-PLOT, y, along];
+      c.add(a, key, rnd() < .5 ? 'stone' : 'stoneDark', { p, r: [rnd() * 3, rnd() * 3, rnd() * 3], s: [s * (1 + rnd() * .5), s * .72, s], rng: rnd, noCast: false });
+    }
+  },
+  // —— 小路与栅栏 ——
+  stone(c, ev, x, z) {
+    const rnd = c.rng(ev), a = c.actor(ev, x, .06, z, { ry: rnd() * 3, h: 5 });
+    c.add(a, c.geo.cyl(.62, .66, .13, 9), 'stone', { s: [1 + rnd() * .15, 1, .85 + rnd() * .15], rng: rnd });
+  },
+  post(c, ev, x, z) {
+    const rnd = c.rng(ev), a = c.actor(ev, x, .75, z, { ry: (rnd() - .5) * .12, h: 5 });
+    c.add(a, c.geo.box(.26, 1.5, .26), 'wood', { rng: rnd });
+    c.add(a, c.geo.cone(.2, .2, 4), 'wood', { p: [0, .75, 0], r: [0, Math.PI / 4, 0], rng: rnd });
+  },
+  rail(c, ev, x1, z1, x2, z2) {
+    const rnd = c.rng(ev), len = +Math.hypot(x2 - x1, z2 - z1).toFixed(2);
+    const a = c.actor(ev, (x1 + x2) / 2, 0, (z1 + z2) / 2, { ry: Math.atan2(-(z2 - z1), x2 - x1), h: 4 });
+    const key = c.geo.box(len, .13, .09);
+    c.add(a, key, 'woodLight', { p: [0, .55, 0], rng: rnd });
+    c.add(a, key, 'woodLight', { p: [0, 1.1, 0], rng: rnd });
+  },
+  // —— 小屋主体 ——
+  foundation(c, ev, side) {
+    const w = H.x1 - H.x0 + .24, d = H.zf - H.zb + .24, th = 1.14, y = H.y0 / 2;
+    const cx = (H.x0 + H.x1) / 2, rnd = c.rng(ev);
+    const pos = { S: [cx, y, H.zf - .45, w, th], N: [cx, y, H.zb + .45, w, th], E: [H.x1 - .45, y, H.zc, th, d - 2 * th + .02], W: [H.x0 + .45, y, H.zc, th, d - 2 * th + .02] }[side];
+    const a = c.actor(ev, pos[0], pos[1], pos[2], { h: 6 });
+    c.add(a, c.geo.box(pos[3], H.y0, pos[4]), 'stone', { rng: rnd });
+    if (side === 'S') c.contact(a, cx, H.zc, w + .7, d + .7, .42);
+  },
+  wall(c, ev, x, course, z, tone, axis, len) {
+    const rnd = c.rng(ev), jit = () => (rnd() - .5) * .018;
+    const a = c.actor(ev, x + jit(), H.y0 + (course + .5) * H.course, z + jit(), { ry: axis === 'z' ? Math.PI / 2 : 0, h: 5.5 });
+    c.add(a, c.geo.box(len - .032, H.course - .03, .86), tone, { rng: rnd });
+  },
+  gable(c, ev, side) {
+    const x = side === 'E' ? H.x1 - .9 : H.x0;
+    const a = c.actor(ev, x, H.eave, H.zc, { h: 4.5 });
+    const key = c.geo.reg('gable', () => {
+      const s = new THREE.Shape();
+      s.moveTo(-H.run, 0); s.lineTo(H.run, 0); s.lineTo(0, H.rise); s.closePath();
+      const g = new THREE.ExtrudeGeometry(s, { depth: .9, bevelEnabled: false }).rotateY(Math.PI / 2);
+      return shadeY(g, .92);
+    }, 'flat');
+    c.add(a, key, 'cream', { rng: c.rng(ev), amount: .02 });
+  },
+  roofDeck(c, ev, side) {
+    const sgn = side === 'S' ? 1 : -1, st = Math.sin(H.theta), ct = Math.cos(H.theta), L = H.L;
+    const px = (H.roofX0 + H.roofX1) / 2;
+    const a = c.actor(ev, px, H.ridge - st * L / 2 + ct * .08, H.zc + sgn * (ct * L / 2 + st * .08), { h: 4.5 });
+    c.add(a, c.geo.box(H.roofX1 - H.roofX0, .16, L), 'wood', { r: [sgn * H.theta, 0, 0] });
+  },
+  roofTile(c, ev, col, row, side, tone) {
+    const rnd = c.rng(ev), sgn = side === 'S' ? 1 : -1, st = Math.sin(H.theta), ct = Math.cos(H.theta);
+    const sl = H.L - (row + .5) * H.ROW, lift = .22 + (rnd() - .5) * .012;
+    const step = (H.roofX1 - H.roofX0) / H.cols;
+    const a = c.actor(ev, H.roofX0 + step * (col + .5), H.ridge - st * sl + ct * lift, H.zc + sgn * (ct * sl + st * lift), { h: 4.5 });
+    const tilt = H.theta - .07 + (rnd() - .5) * .02;
+    c.add(a, c.geo.box(+(step - .03).toFixed(3), .13, 1.14), tone, { r: [sgn * tilt, (rnd() - .5) * .012, 0], rng: rnd, amount: .05 });
+  },
+  ridgeCap(c, ev, col) {
+    const step = (H.roofX1 - H.roofX0) / H.cols, rnd = c.rng(ev);
+    const a = c.actor(ev, H.roofX0 + step * (col + .5), H.ridge + .3, H.zc, { h: 3.5 });
+    c.add(a, c.geo.cyl(.27, .27, +(step + .02).toFixed(3), 10), 'brick', { r: [0, 0, Math.PI / 2], rng: rnd });
+  },
+  chimney(c, ev, i) {
+    const a = c.actor(ev, -1.9, 5.15 + i * .72, -7.6, { h: 3.5 }), rnd = c.rng(ev);
+    c.add(a, c.geo.box(1.3, .69, 1.3), i % 2 ? 'brick' : 'terracotta', { rng: rnd, r: [0, (rnd() - .5) * .03, 0] });
+  },
+  chimneyCap(c, ev) {
+    const a = c.actor(ev, -1.9, 5.15 + 4 * .72 - .17, -7.6, { h: 3 });
+    c.add(a, c.geo.box(1.6, .22, 1.6), 'stone');
+    c.refs.chimney = { x: -1.9, y: 5.15 + 4 * .72 - .05, z: -7.6 };
+  },
+  // —— 门窗 ——
+  doorFrame(c, ev, x) {
+    const a = c.actor(ev, x, H.y0, H.zf - .08, { h: 3 }), rnd = c.rng(ev);
+    const jamb = c.geo.box(.18, 2.4, .3);
+    c.add(a, jamb, 'wood', { p: [-.84, 1.2, 0], rng: rnd });
+    c.add(a, jamb, 'wood', { p: [.84, 1.2, 0], rng: rnd });
+    c.add(a, c.geo.box(1.86, .2, .3), 'wood', { p: [0, 2.32, 0], rng: rnd });
+  },
+  doorPlank(c, ev, x) {
+    const a = c.actor(ev, x, H.y0 + 1.11, H.zf - .22, { h: 2.5 });
+    c.add(a, c.geo.box(.54, 2.22, .14), 'woodLight', { rng: c.rng(ev), amount: .06 });
+  },
+  doorHandle(c, ev, x) {
+    const a = c.actor(ev, x, H.y0 + 1.1, H.zf - .11);
+    c.add(a, c.geo.ball(8), 'cream', { s: .09 });
+  },
+  doorStep(c, ev, x) {
+    const a = c.actor(ev, x, .1, H.zf + .36, { h: 3 });
+    c.add(a, c.geo.box(2.1, .2, .72), 'stone', { rng: c.rng(ev) });
+  },
+  windowFrame(c, ev, x) {
+    const a = c.actor(ev, x, H.y0 + .8, H.zf - .08, { h: 3 }), rnd = c.rng(ev);
+    const v = c.geo.box(.14, 1.6, .28), hz = c.geo.box(1.76, .14, .28);
+    c.add(a, v, 'cream', { p: [-.81, .8, 0], rng: rnd });
+    c.add(a, v, 'cream', { p: [.81, .8, 0], rng: rnd });
+    c.add(a, hz, 'cream', { p: [0, 1.53, 0], rng: rnd });
+    c.add(a, hz, 'cream', { p: [0, .07, 0], rng: rnd });
+  },
+  windowGlass(c, ev, x) {
+    const a = c.actor(ev, x, H.y0 + 1.6, H.zf - .2);
+    c.add(a, c.geo.box(1.56, 1.36, .06), 'slate');
+  },
+  windowBar(c, ev, x) {
+    const a = c.actor(ev, x, H.y0 + 1.6, H.zf - .13, { h: 2 });
+    c.add(a, c.geo.box(.07, 1.4, .08), 'cream');
+    c.add(a, c.geo.box(1.56, .07, .08), 'cream');
+  },
+  flowerBox(c, ev, x) {
+    const rnd = c.rng(ev), a = c.actor(ev, x, H.y0 + .72, H.zf + .22, { h: 2.5 });
+    c.add(a, c.geo.box(1.8, .3, .46), 'wood', { rng: rnd });
+    const head = c.geo.rock(0), tone = ['peach', 'rose', 'cream'];
+    for (let i = 0; i < 6; i++) {
+      c.add(a, c.geo.rock(0), 'leaf', { p: [-.68 + i * .27, .2, (rnd() - .5) * .14], s: [.17, .13, .15], rng: rnd });
+      c.add(a, head, tone[i % 3], { p: [-.68 + i * .27, .32, (rnd() - .5) * .14], s: .09, rng: rnd });
+    }
+  },
+  // —— 菜园 ——
+  bed(c, ev, i, x) {
+    const a = c.actor(ev, x, .18, -6.6, { h: 3.5 });
+    (c.refs.beds ||= [])[i] = x;
+    c.add(a, c.geo.box(1.9, .36, 8.1, .1), 'soil', { rng: c.rng(ev) });
+    c.contact(a, x, -6.6, 2.1, 8.4, .32);
+  },
+  plant(c, ev, kind, ridge, slot) {
+    const rnd = c.rng(ev), x0 = c.refs.beds[ridge];
+    const spacing = { pumpkin: 2, cabbage: 1.34, carrot: 1 }[kind];
+    const x = x0 + (rnd() - .5) * .16, z = -10.6 + spacing * (slot + .5) + (rnd() - .5) * .1;
+    const a = c.actor(ev, x, .36, z, { ry: rnd() * 6.28 });
+    if (kind === 'pumpkin') {
+      const key = c.geo.reg('pumpkin', () => {
+        const g = new THREE.SphereGeometry(1, 18, 10), p = g.attributes.position;
+        for (let i = 0; i < p.count; i++) {
+          const nx = p.getX(i), ny = p.getY(i), nz = p.getZ(i), ang = Math.atan2(nz, nx);
+          const k = 1 + .09 * Math.abs(Math.cos(ang * 4)) * (1 - ny * ny);
+          p.setXYZ(i, nx * k, ny * (.8 - .1 * ny * ny), nz * k);
+        }
+        g.computeVertexNormals();
+        return shadeY(g, .78);
+      });
+      const s = .6 + rnd() * .1;
+      c.add(a, key, 'orange', { p: [0, s * .7, 0], s, rng: rnd });
+      c.add(a, c.geo.cyl(.05, .09, .24, 6), 'wood', { p: [0, s * 1.38, 0], r: [.2, 0, .2] });
+      const leaf = c.geo.ball(8);
+      c.add(a, leaf, 'moss', { p: [.62, .09, .22], s: [.42, .07, .3], r: [0, .6, 0], rng: rnd });
+      c.add(a, leaf, 'leaf', { p: [-.5, .08, -.38], s: [.36, .06, .28], r: [0, 2.1, 0], rng: rnd });
+    } else if (kind === 'cabbage') {
+      const leaf = c.geo.ball(10), s = .55 + rnd() * .08;
+      c.add(a, leaf, 'leaf', { p: [0, s * .62, 0], s: [s * .68, s * .6, s * .68], rng: rnd });
+      for (let i = 0; i < 4; i++) {
+        const ang = i * Math.PI / 2 + rnd() * .3;
+        c.add(a, leaf, i % 2 ? 'moss' : 'leaf', { p: [Math.cos(ang) * s * .42, s * .36, Math.sin(ang) * s * .42], r: [Math.sin(ang) * .6, 0, -Math.cos(ang) * .6], s: [s * .62, s * .22, s * .55], rng: rnd });
+      }
+    } else {
+      const root = c.geo.cone(.2, .58, 8);
+      c.add(a, root, 'orange', { p: [0, .42, 0], r: [Math.PI, 0, 0], rng: rnd });
+      const top = c.geo.cone(.09, .62, 5);
+      for (let i = 0; i < 3; i++) {
+        const ang = i * 2.1 + rnd();
+        c.add(a, top, 'carrotTop', { p: [0, .4, 0], r: [Math.sin(ang) * .35, 0, Math.cos(ang) * .35], rng: rnd });
+      }
+    }
+  },
+  // —— 池塘 ——
+  pond(c, ev, x, z, r) {
+    c.refs.pond = { x, z, r, y: .13 };
+    const a = c.actor(ev, x, 0, z), seed = c.seed;
+    const bankKey = c.geo.reg('pondBank', () => {
+      const A = new THREE.Color(PAL.bank);
+      return blobDisc(seed, r * 1.12, 6, k => k > .82 ? .1 * (1 - (k - .82) / .18) + .01 : .1, () => [A.r, A.g, A.b]);
+    });
+    const waterKey = c.geo.reg('pondWater', () => {
+      const S = new THREE.Color(PAL.water), D = new THREE.Color('#72919A');
+      return blobDisc(seed, r * .98, 5, () => .135, k => { const C = D.clone().lerp(S, smooth(k)); return [C.r, C.g, C.b]; });
+    }, 'water');
+    c.noCast.add(bankKey); c.noCast.add(waterKey);
+    c.add(a, bankKey, '#FFFFFF');
+    c.add(a, waterKey, '#FFFFFF');
+  },
+  rock(c, ev, x, z, s) {
+    const rnd = c.rng(ev), a = c.actor(ev, x, s * .32, z, { ry: rnd() * 6, h: 4 });
+    c.add(a, c.geo.rock(1), 'stone', { s: [s * (1 + rnd() * .35), s * .72, s], r: [rnd(), rnd(), rnd()], rng: rnd });
+  },
+  lily(c, ev, x, z) {
+    const rnd = c.rng(ev), a = c.actor(ev, x, .155, z, { ry: rnd() * 6 });
+    c.add(a, c.geo.cyl(.5, .5, .035, 12), 'moss', { rng: rnd });
+    c.add(a, c.geo.rock(0), 'rose', { p: [.06, .09, .04], s: [.14, .1, .14], rng: rnd });
+  },
+  // —— 树与花草 ——
+  tree(c, ev, x, z) {
+    const rnd = c.rng(ev), a = c.actor(ev, x, 0, z, { ry: rnd() * 6 });
+    c.add(a, c.geo.cyl(.38, .68, 4.4, 9), 'wood', { p: [0, 2.2, 0], rng: rnd });
+    const limb = c.geo.cyl(.14, .26, 2, 7);
+    c.add(a, limb, 'wood', { p: [.72, 4, .14], r: [.1, 0, -.72], rng: rnd });
+    c.add(a, limb, 'wood', { p: [-.7, 4.1, -.2], r: [-.15, 0, .68], rng: rnd });
+    const crown = c.geo.rock(1);
+    for (const [px, py, pz, s, tone] of [[0, 7.2, 0, 3.05, 'leaf'], [2, 5.8, .8, 2.15, 'moss'], [-1.9, 6, -.7, 2.25, 'grass'], [.3, 5.6, -2, 1.95, 'moss'], [-.5, 5.7, 1.95, 2, 'leaf'], [.6, 8.5, .3, 1.75, 'grass']]) {
+      c.add(a, crown, tone, { p: [px, py, pz], r: [rnd() * 3, rnd() * 3, rnd() * 3], s: [s, s * .88, s], rng: rnd });
+    }
+    c.contact(a, x, z, 4.4, 4.4, .3);
+  },
+  bush(c, ev, x, z, s) {
+    const rnd = c.rng(ev), a = c.actor(ev, x, 0, z, { ry: rnd() * 6 }), key = c.geo.rock(1);
+    c.add(a, key, 'moss', { p: [0, .62 * s, 0], s: [1.02 * s, .86 * s, 1.02 * s], r: [rnd() * 3, rnd() * 3, 0], rng: rnd });
+    c.add(a, key, 'leaf', { p: [.62 * s, .42 * s, .25 * s], s: .62 * s, r: [rnd() * 3, rnd() * 3, 0], rng: rnd });
+    c.add(a, key, 'grass', { p: [-.5 * s, .4 * s, .38 * s], s: .55 * s, r: [rnd() * 3, rnd() * 3, 0], rng: rnd });
+    c.contact(a, x, z, 2.2 * s, 2.2 * s, .28);
+  },
+  flowers(c, ev, x, z, tone) {
+    const rnd = c.rng(ev), a = c.actor(ev, x, 0, z, { perPart: true, live: true });
+    const stem = c.geo.cyl(.022, .032, 1, 3), head = c.geo.rock(0), sway = swayPost(.05);
+    for (let i = 0; i < 8; i++) {
+      const ang = rnd() * 6.28, d = Math.sqrt(rnd()) * .78, h = .36 + rnd() * .36;
+      const px = Math.cos(ang) * d, pz = Math.sin(ang) * d;
+      c.add(a, stem, 'moss', { p: [px, h / 2, pz], s: [1, h, 1], post: sway, noCast: true });
+      c.add(a, head, tone, { p: [px, h + .03, pz], s: [.15, .1, .15], r: [rnd(), rnd() * 3, rnd()], rng: rnd, amount: .06 });
+      c.add(a, head, 'cream', { p: [px, h + .1, pz], s: .045 });
+    }
+  },
+  grass(c, ev, x, z, r, n) {
+    const rnd = c.rng(ev), a = c.actor(ev, 0, 0, 0, { perPart: true, live: true });
+    const key = c.geo.reg('blade', () => shadeY(new THREE.ConeGeometry(.1, 1, 5).translate(0, .5, 0), .9)), sway = swayPost(.2);
+    for (let i = 0; i < n; i++) {
+      const ang = rnd() * 6.28, d = Math.sqrt(rnd()) * r, px = x + Math.cos(ang) * d, pz = z + Math.sin(ang) * d;
+      const h = .38 + rnd() * .55;
+      if (!c.isFree(px, pz)) continue;
+      c.add(a, key, rnd() < .45 ? 'leaf' : 'grass', { p: [px, 0, pz], r: [(rnd() - .5) * .25, rnd() * 3, (rnd() - .5) * .25], s: [1, h, 1], post: sway, rng: rnd, amount: .05 });
+    }
+  },
+  woodpile(c, ev, x, z) {
+    const rnd = c.rng(ev), a = c.actor(ev, x, 0, z, { h: 3.5 });
+    const log = c.geo.cyl(.27, .27, 2.5, 9);
+    for (const [row, count] of [[0, 4], [1, 3], [2, 2]]) for (let i = 0; i < count; i++) {
+      c.add(a, log, i % 2 ? 'woodLight' : 'wood', { p: [(rnd() - .5) * .12, .27 + row * .47, (i - (count - 1) / 2) * .55], r: [0, 0, Math.PI / 2], rng: rnd, amount: .05 });
+    }
+    c.contact(a, x, z, 3, 2.6, .28);
+  },
+  rainBarrel(c, ev, x, z) {
+    const rnd = c.rng(ev), a = c.actor(ev, x, 0, z, { h: 3.5 });
+    c.add(a, c.geo.cyl(.62, .54, 1.4, 14), 'woodLight', { p: [0, .7, 0], rng: rnd });
+    const band = c.geo.cyl(.64, .64, .09, 14);
+    c.add(a, band, 'wood', { p: [0, .32, 0] });
+    c.add(a, band, 'wood', { p: [0, 1.1, 0] });
+    c.add(a, c.geo.cyl(.5, .5, .04, 14), 'water', { p: [0, 1.41, 0] });
+    c.contact(a, x, z, 1.4, 1.4, .3);
+  },
+  wheelbarrow(c, ev, x, z, ry) {
+    const rnd = c.rng(ev), a = c.actor(ev, x, 0, z, { ry, h: 3.5 });
+    c.add(a, c.geo.box(1, .46, 1.3), 'woodLight', { p: [0, .76, 0], r: [.1, 0, 0], rng: rnd });
+    c.add(a, c.geo.cyl(.3, .3, .13, 14), 'wood', { p: [0, .3, 1], r: [0, 0, Math.PI / 2] });
+    const bar = c.geo.box(.09, .09, 2.5);
+    c.add(a, bar, 'wood', { p: [-.42, .6, -.28], r: [.18, 0, 0] });
+    c.add(a, bar, 'wood', { p: [.42, .6, -.28], r: [.18, 0, 0] });
+    const leg = c.geo.box(.09, .46, .09);
+    c.add(a, leg, 'wood', { p: [-.42, .23, -.56] });
+    c.add(a, leg, 'wood', { p: [.42, .23, -.56] });
+    c.add(a, c.geo.ball(10), 'orange', { p: [-.14, 1.02, .08], s: [.34, .27, .34], rng: rnd });
+  },
+  // —— 动物 ——
+  duck(c, ev, ref, n) {
+    const pond = c.refs[ref], rnd = c.rng(ev), a = c.actor(ev, pond.x, pond.y, pond.z, { live: true });
+    const ph = n * Math.PI + rnd() * .3, w = .3, rx = pond.r * .5, rz = pond.r * .56;
+    a.motion = (t, s) => {
+      const q = t * w + ph;
+      s.x = pond.x + Math.cos(q) * rx;
+      s.z = pond.z + Math.sin(q) * rz;
+      s.ry = Math.atan2(-Math.sin(q) * rx * w, Math.cos(q) * rz * w);
+      s.y = pond.y + .012 * Math.sin(t * 2.6 + ph);
+    };
+    const ball = c.geo.ball(12), cone = c.geo.cone(.1, .3, 6);
+    c.add(a, ball, 'duck', { p: [0, .2, 0], s: [.36, .26, .56] });
+    c.add(a, ball, 'duck', { p: [0, .54, .4], s: .21 });
+    c.add(a, cone, 'orange', { p: [0, .52, .55], r: [Math.PI / 2, 0, 0] });
+    c.add(a, cone, 'duck', { p: [0, .26, -.45], r: [-1.95, 0, 0] });
+    c.add(a, ball, 'cream', { p: [.3, .25, -.04], s: [.09, .17, .33] });
+    c.add(a, ball, 'cream', { p: [-.3, .25, -.04], s: [.09, .17, .33] });
+    c.add(a, ball, 'wood', { p: [.15, .6, .53], s: .026 }); c.add(a, ball, 'wood', { p: [-.15, .6, .53], s: .026 });
+  },
+  rabbit(c, ev, cx, cz, r) {
+    const rnd = c.rng(ev), a = c.actor(ev, cx, 0, cz, { live: true }), T = 1.45;
+    a.motion = (t, s) => {
+      const u = t / T, n = Math.floor(u), f = u - n, hop = clamp01(f / .42);
+      const ang = (n + smooth(hop)) * .36 + 1;
+      s.x = cx + Math.cos(ang) * r; s.z = cz + Math.sin(ang) * r;
+      s.y = Math.sin(Math.PI * hop) * .62;
+      s.ry = Math.atan2(-Math.sin(ang), Math.cos(ang));
+    };
+    const ball = c.geo.ball(12), cream = c.color('duck', rnd);
+    c.add(a, ball, cream, { p: [0, .42, -.08], s: [.34, .36, .5] });
+    c.add(a, ball, cream, { p: [0, .72, .38], s: .25 });
+    const ear = c.geo.ball(8);
+    c.add(a, ear, cream, { p: [.1, 1.08, .32], s: [.06, .24, .09], r: [-.18, 0, -.1] });
+    c.add(a, ear, cream, { p: [-.1, 1.08, .32], s: [.06, .24, .09], r: [-.18, 0, .1] });
+    c.add(a, ball, 'puff', { p: [0, .5, -.58], s: .12 });
+    c.add(a, ball, 'wood', { p: [.15, .78, .58], s: .032 }); c.add(a, ball, 'wood', { p: [-.15, .78, .58], s: .032 });
+  },
+  butterfly(c, ev, cx, cz, n) {
+    const rnd = c.rng(ev), a = c.actor(ev, cx, 1.3, cz, { live: true }), ph = rnd() * 6.28, sp = .55 + rnd() * .25;
+    a.motion = (t, s) => {
+      const q = t * sp + ph, rad = 1 + .45 * Math.sin(q * 2.3);
+      s.x = cx + Math.cos(q) * rad; s.z = cz + Math.sin(q) * rad;
+      s.y = 1.25 + .32 * Math.sin(q * 3.1) + .08 * Math.sin(t * 9);
+      s.ry = Math.atan2(-Math.sin(q), Math.cos(q));
+    };
+    const tone = ['terracotta', 'cream', 'slate'][(n - 1) % 3], ball = c.geo.ball(8);
+    c.add(a, ball, 'wood', { s: [.035, .035, .16] });
+    const wing = side => (t, out) => {
+      const flap = Math.sin(t * 15 + ph) * .85 + .25;
+      return out.makeRotationZ(side * flap).multiply(_wingBase[side > 0 ? 0 : 1]);
+    };
+    c.add(a, ball, tone, { dyn: wing(1), rng: rnd });
+    c.add(a, ball, tone, { dyn: wing(-1), rng: rnd });
+  },
+  smoke(c, ev, ref) {
+    const ch = c.refs[ref], a = c.actor(ev, ch.x, ch.y, ch.z, { live: true }), rnd = c.rng(ev), ball = c.geo.ball(10), N = 6, T = 5.2;
+    for (let i = 0; i < N; i++) {
+      const off = rnd() * 6;
+      c.add(a, ball, 'puff', { noCast: true, dyn: (t, out) => {
+        const q = ((t - ev.start) / T + i / N) % 1;
+        const s = .34 * Math.sin(Math.PI * Math.min(1, q * 1.02)) ** .7 + .001;
+        out.compose(_v2.set(Math.sin(q * 5 + off) * .32 + q * .9, q * 4.1, Math.cos(q * 4 + off) * .24), _qI, _vS.set(s * (1 + q), s * (1 + q), s * (1 + q)));
+        return out;
+      } });
+    }
+  },
+  cat(c, ev, ref) {
+    const a = c.actor(ev, -5.4, H.ridge + .55, H.zc, { h: 3.2 }), rnd = c.rng(ev), ball = c.geo.ball(12);
+    const fur = c.color('peach', rnd);
+    c.add(a, ball, fur, { p: [0, .08, 0], s: [.8, .42, .42] });
+    c.add(a, ball, fur, { p: [.78, .28, .1], s: .32 });
+    const ear = c.geo.cone(.1, .22, 4);
+    c.add(a, ear, 'terracotta', { p: [.72, .52, .28], r: [.2, 0, -.1] });
+    c.add(a, ear, 'terracotta', { p: [.86, .52, -.06], r: [-.2, 0, -.1] });
+    c.add(a, ball, 'wood', { p: [1.04, .34, .25], s: .035 }); c.add(a, ball, 'wood', { p: [1.08, .34, 0], s: .035 });
+    a.live = true;
+    c.add(a, ball, 'terracotta', { dyn: (t, out) => {
+      const w = Math.sin(t * 1.4) * .45;
+      return out.compose(_v2.set(-.9, .1 + Math.abs(w) * .1, w * .55), _qI, _vS.set(.42, .09, .09));
+    } });
+  },
+  orbit(c, ev, speed) { c.world.orbit = { start: ev.start, speed }; c.actor(ev); },
+};
+const _qI = new THREE.Quaternion(), _vS = new THREE.Vector3();
+const _wingBase = [
+  new THREE.Matrix4().makeTranslation(.17, 0, 0).multiply(new THREE.Matrix4().makeScale(.17, .012, .2)),
+  new THREE.Matrix4().makeTranslation(-.17, 0, 0).multiply(new THREE.Matrix4().makeScale(.17, .012, .2)),
+];
+
+// ===================================================================
+// 应用：把四层接起来，维护播放状态
+// ===================================================================
+const SHOWCASE_HOLD = 10;   // 开启循环时，环绕展示停留的秒数
+
+class App {
+  constructor() {
+    this.t = 0; this.playing = true; this.speed = 1; this.loop = false;
+    this.seed = 'cottage'; this.recorder = null;
+    this.ui = new UI(this);
+    const text = $('build-script').textContent.replace(/^\n/, '').replace(/\s+$/, '');
+    this.timeline = new Timeline(Interpreter.parse(text));
+    this.ui.setTimeline(this.timeline);
+    this.world = new World($('scene'));
+    this.world.onUserCamera = () => this.ui.setAutoCam(false);
+    this.world.build(this.timeline, this.seed);
+    this.setLight(+$('light').value); this.ui.setLightValue(+$('light').value);
+    this.ui.setPlaying(true);
+    const vp = $('viewport');
+    const fit = () => this.world.resize(vp.clientWidth, vp.clientHeight);
+    new ResizeObserver(fit).observe(vp); fit();
+    this.fps = { last: performance.now(), frames: 0, value: 0 };
+    this.last = performance.now();
+    requestAnimationFrame(n => this.frame(n));
+  }
+  frame(now) {
+    const dt = Math.max(0, Math.min((now - this.last) / 1000, .1));   // 首帧时间戳可能早于启动时刻
+    this.last = now;
+    if (this.playing) {
+      this.t += dt * this.speed;
+      const T = this.timeline.total;
+      if (this.recorder && this.t > T + 2) this.stopRecord();
+      if (this.loop && !this.recorder && this.t > T + SHOWCASE_HOLD) this.t = 0;
+    }
+    this.world.render(this.t);
+    this.ui.update(this.t);
+    const f = this.fps; f.frames++;
+    if (now - f.last >= 500) {
+      f.value = Math.round(f.frames * 1000 / (now - f.last)); f.frames = 0; f.last = now;
+      const s = this.world.stats();
+      this.ui.stats(s.tris, s.peak, f.value);
+    }
+    requestAnimationFrame(n => this.frame(n));
+  }
+  setPlaying(p) { this.playing = p; this.ui.setPlaying(p); }
+  togglePlay() { this.setPlaying(!this.playing); }
+  seek(t) { this.t = Math.max(0, t); }
+  replay() { this.seek(0); this.setPlaying(true); if (!this.world.autoCam) this.setAutoCam(true); }
+  step(dir) {
+    const tl = this.timeline, tc = Math.min(this.t, tl.total), cur = tl.stageAt(tc), i = tl.stages.indexOf(cur);
+    if (dir < 0) this.seek(tc - cur.start > .6 || i === 0 ? cur.start : tl.stages[i - 1].start);
+    else this.seek(i < tl.stages.length - 1 ? tl.stages[i + 1].start : tl.total);
+    this.ui.forceFollow = true;
+  }
+  jumpToLine(line) {
+    const ev = this.timeline.byLine.get(line);
+    if (!ev) return;
+    this.setPlaying(false);
+    this.seek(ev.end);
+  }
+  hoverLine(line) {
+    if (line === this.hovered) return;   // 同一行内移动鼠标不重新触发
+    this.hovered = line;
+    this.world.setGlow(line);
+  }
+  setLight(deg) { this.world.setLight(deg); }
+  setAutoCam(on) { this.world.setAutoCam(on); this.ui.setAutoCam(on); }
+  setSeed(seed) {
+    if (seed === this.seed) return;
+    this.seed = seed;
+    this.world.build(this.timeline, seed);
+  }
+  download(blob, name) {
+    const url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+  exportTimeline() {
+    const json = JSON.stringify(this.timeline.toJSON(this.seed), null, 2);
+    this.download(new Blob([json], { type: 'application/json' }), `cottage-timeline-${this.seed}.json`);
+  }
+  toggleRecord() {
+    if (this.recorder) { this.stopRecord(); return; }
+    const mime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(m => window.MediaRecorder?.isTypeSupported(m));
+    if (!mime) { this.ui.note('当前浏览器不支持录制 webm，请换用 Chrome、Edge 或 Firefox。'); return; }
+    const stream = $('scene').captureStream(60);
+    const chunks = [], rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12e6 });
+    rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    rec.onstop = () => {
+      stream.getTracks().forEach(tr => tr.stop());
+      this.download(new Blob(chunks, { type: 'video/webm' }), `cottage-build-${this.seed}.webm`);
+      this.ui.note('录制完成，视频已下载。');
+    };
+    this.recorder = rec;
+    rec.start(250);
+    this.replay();
+    this.ui.setRecording(true);
+    this.ui.note('正在录制整段搭建过程，播放结束会自动保存。');
+  }
+  stopRecord() {
+    this.recorder?.stop();
+    this.recorder = null;
+    this.ui.setRecording(false);
+  }
+}
+
+try {
+  const app = new App();
+  window.__cottage = app;   // 便于在控制台调试和校验
+} catch (err) {
+  const noGL = /WebGL/i.test(String(err.message));
+  fatal(noGL ? '浏览器无法启用 WebGL' : '场景启动失败', noGL ? '请确认浏览器已开启硬件加速。' : '施工脚本或场景构建出错：', err);
+  console.error(err);
+}
+</script>
+</body>
+</html>

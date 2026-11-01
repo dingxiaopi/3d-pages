@@ -1,0 +1,9 @@
+{
+  "name": "3d-pages",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs && python3 -m http.server 4323 --bind 127.0.0.1 --directory dist"
+  }
+}
