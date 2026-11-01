@@ -1,31 +1,71 @@
-# 3D 作品集
+<p align="center">
+  <a href="https://3d.dingxiaopi.com/cottage-build/"><img src="docs/demo.gif" alt="田园小屋从地块升起到完工的搭建过程，右侧的施工脚本随画面同步高亮" width="1000"></a>
+</p>
 
-用 AI 做的 3D 网页，每个作品都公开在线效果、提示词和完整代码。
+<h1 align="center">3D 作品集</h1>
 
-在线查看：https://3d.dingxiaopi.com
+<p align="center">用 AI 做的 3D 网页。每个作品都能在线玩，提示词和代码全部公开。</p>
 
-## 目录
+<p align="center">
+  <a href="https://3d.dingxiaopi.com"><strong>在线体验</strong></a> ·
+  <a href="README.en.md">English</a>
+</p>
 
-```text
-works/<作品名>/
-  index.html   作品本身，单文件，双击可打开
-  prompt.md    生成作品用的提示词原文
-  meta.json    标题、简介、提示词来源、后续调整
-  cover.jpg    封面，1200×675
-scripts/build.mjs  读取 works/，生成网站到 dist/
-```
+## 作品
+
+<table>
+  <tr>
+    <td width="46%"><a href="https://3d.dingxiaopi.com/cottage-build/"><img src="works/cottage-build/cover.jpg" alt="田园小屋搭建的完成画面"></a></td>
+    <td>
+      <strong><a href="https://3d.dingxiaopi.com/cottage-build/">田园小屋搭建</a></strong><br><br>
+      一座微缩小屋从地块升起到完工的全过程。可以拖动回放；右侧的施工脚本就是实际执行的代码，点击任意一行，场景跳到这一行完成的时刻。<br><br>
+      Three.js · 单文件 HTML ·
+      <a href="works/cottage-build/prompt.md">提示词</a>（<a href="https://x.com/cfenghub/status/2116727428282569071">CF长风</a>）·
+      <a href="works/cottage-build/index.html">源码</a>
+    </td>
+  </tr>
+</table>
+
+## 每个作品都有什么
+
+- **在线效果**：打开网页就能玩，不用安装。
+- **提示词原文**：可以一键复制，并注明来源。
+- **完整代码**：单个 HTML 文件，下载后双击就能打开。
+- **后续调整**：如实列出提示词之外改过什么，因为成品通常不是一次生成的。
 
 ## 本地运行
 
 需要 Node.js 和 Python 3，没有其他依赖。
 
 ```bash
+git clone https://github.com/dingxiaopi/3d-pages.git
+cd 3d-pages
 npm run dev    # 打开 http://127.0.0.1:4323
 ```
 
-推送到 `main` 后，GitHub Actions 会自动构建并发布到 GitHub Pages。
+只想看某个作品的话，直接双击 `works/<作品名>/index.html` 即可（需要联网加载 three.js）。
 
-新增作品的规范见 [AGENTS.md](AGENTS.md)。
+## 工作原理
+
+每个作品是 `works/` 下的一个目录，网站由脚本自动生成，推送到 `main` 后通过 GitHub Actions 发布到 GitHub Pages。
+
+```text
+works/<作品名>/
+  index.html   作品本身
+  prompt.md    提示词原文
+  meta.json    标题、简介、提示词来源、后续调整
+  cover.jpg    封面
+scripts/build.mjs  读取 works/，生成网站到 dist/
+```
+
+## 参与贡献
+
+发现问题可以提 [Issue](https://github.com/dingxiaopi/3d-pages/issues)，贡献新作品请看 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
+## 致谢
+
+- 田园小屋的提示词来自 [CF长风（@cfenghub）](https://x.com/cfenghub/status/2116727428282569071)，经作者同意收录。
+- 3D 渲染使用 [Three.js](https://threejs.org/)。
 
 ## 授权
 

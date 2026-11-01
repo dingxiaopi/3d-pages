@@ -1,0 +1,25 @@
+name: 问题反馈
+description: 作品或网站有地方不正常
+labels: [bug]
+body:
+  - type: input
+    id: where
+    attributes:
+      label: 哪个作品或页面
+      placeholder: https://3d.dingxiaopi.com/cottage-build/
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: 发生了什么
+      description: 你看到了什么，原本应该是什么样。可以直接贴截图。
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: 浏览器和设备
+      placeholder: Chrome 130，MacBook Air M2
+    validations:
+      required: true
