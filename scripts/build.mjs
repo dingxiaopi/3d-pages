@@ -60,7 +60,7 @@ h1 { margin: 0; font-size: clamp(30px, 4.4vw, 48px); line-height: 1.2; font-weig
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); gap: 24px; padding-bottom: 64px; }
 .card { display: block; color: inherit; text-decoration: none; background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; transition: border-color .15s; }
 .card:hover { color: inherit; border-color: var(--accent); }
-.card img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.card img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; }
 .card div { padding: 16px 18px 18px; }
 .card h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .card p { margin: 6px 0 0; font-size: 14px; color: var(--ink-2); }
